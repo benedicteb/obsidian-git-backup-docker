@@ -33,11 +33,14 @@ RUN case "${TARGETARCH}" in \
 
 # ---------------------------------------------------------------------------
 # Install system dependencies
+#
+# xz is only needed for extracting s6-overlay tarballs and is removed after.
 # ---------------------------------------------------------------------------
 RUN apk add --no-cache \
     git \
     openssh-client \
     inotify-tools \
+    findutils \
     xz
 
 # ---------------------------------------------------------------------------
@@ -56,8 +59,9 @@ RUN . /tmp/s6-arch.env && \
       -O /tmp/s6-overlay-arch.tar.xz && \
     tar -C / -Jxpf /tmp/s6-overlay-arch.tar.xz
 
-# Cleanup
-RUN rm -f /tmp/s6-overlay-*.tar.xz /tmp/s6-arch.env
+# Cleanup: remove tarballs and build-only dependency
+RUN rm -f /tmp/s6-overlay-*.tar.xz /tmp/s6-arch.env && \
+    apk del xz
 
 # ---------------------------------------------------------------------------
 # Install obsidian-headless
@@ -91,6 +95,8 @@ ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 #   /vault   — Obsidian vault data + git working tree (optional mount)
 # ---------------------------------------------------------------------------
 VOLUME ["/config", "/vault"]
+
+# No ports exposed — this container has no web interface or API
 
 # s6-overlay as PID 1
 ENTRYPOINT ["/init"]
