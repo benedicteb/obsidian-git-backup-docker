@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "docs/spec.md",
+    "docs/adr/*.md"
+  ],
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "description": "Senior Docker developer. Builds maintainable, production-grade container images following linuxserver.io conventions.",
+      "prompt": "{file:.opencode/prompts/build.md}"
+    }
+  }
+}
