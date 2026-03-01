@@ -40,12 +40,22 @@ cp .env.example .env
 # Edit .env and fill in the required values
 ```
 
-You need:
+You need three values:
 
-- **`OBSIDIAN_AUTH_TOKEN`** — Your Obsidian account auth token. Get it by
-  running `npm install -g obsidian-headless && ob login` locally.
+- **`OBSIDIAN_AUTH_TOKEN`** — Your Obsidian account auth token.
+
+  To get it:
+  1. Install obsidian-headless: `npm install -g obsidian-headless`
+  2. Run `ob login` and follow the prompts
+  3. The token is saved to `~/.config/obsidian-headless/config.json`
+     — copy the `token` value from that file
+
+  > **Note:** `OBSIDIAN_AUTH_TOKEN` does not use the `OBSIDIAN_GIT_` prefix
+  > because it's read directly by obsidian-headless, not this project.
+
 - **`OBSIDIAN_GIT_VAULT_NAME`** — The name of your remote vault. Run
   `ob sync-list-remote` to see available vaults.
+
 - **`OBSIDIAN_GIT_REMOTE_URL`** — Your git remote SSH URL
   (e.g., `git@github.com:username/vault-backup.git`).
 
@@ -90,14 +100,17 @@ You should see:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `OBSIDIAN_AUTH_TOKEN` | Yes | — | Obsidian account auth token |
+| `OBSIDIAN_AUTH_TOKEN`* | Yes | — | Obsidian account auth token |
 | `OBSIDIAN_GIT_VAULT_NAME` | Yes | — | Remote vault name or ID |
 | `OBSIDIAN_GIT_REMOTE_URL` | Yes | — | Git remote URL (SSH) |
 | `OBSIDIAN_GIT_USER_NAME` | No | `obsidian-git-backup` | Git commit author name |
 | `OBSIDIAN_GIT_USER_EMAIL` | No | `obsidian-git-backup@local` | Git commit author email |
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
-| `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing |
+| `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+
+\* `OBSIDIAN_AUTH_TOKEN` is read directly by obsidian-headless. It does not use
+the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 ## Volumes
 
@@ -122,11 +135,13 @@ base
 - **obsidian-sync**: Runs `ob sync --continuous`. Auto-restarted by s6 if it
   crashes.
 - **git-watcher**: Monitors `/vault` with `inotifywait`. Debounces, then
-  commits and pushes. Auto-restarted by s6 if it crashes.
+  commits and pushes. Auto-restarted by s6 if it crashes. On graceful
+  shutdown, any pending changes in the debounce window are committed.
 
 ## Multiple Vaults
 
-Run one container per vault. Each needs its own `.env` file and volumes:
+Run one container per vault. Each needs its own `.env` file (with a different
+`OBSIDIAN_GIT_VAULT_NAME` and `OBSIDIAN_GIT_REMOTE_URL`) and separate volumes:
 
 ```yaml
 services:
@@ -150,5 +165,8 @@ services:
 - **SSH only** — HTTPS git remotes are not supported yet.
 - **No LLM commit messages** — Commits use simple timestamps. AI-generated
   messages are planned for a future release.
-- **No conflict resolution** — If someone pushes to the git remote from
-  elsewhere, `git push` will fail until resolved manually.
+- **Runs as root** — Services run as root inside the container. Privilege
+  separation is planned for a future release.
+- **Large syncs may produce partial commits** — The debounce timer helps but
+  if an Obsidian sync takes longer than the debounce period, intermediate
+  state may be committed. Increase `OBSIDIAN_GIT_DEBOUNCE_SECS` for large vaults.
