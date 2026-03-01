@@ -37,6 +37,9 @@ log_banner() {
 log "Validating environment variables..."
 
 missing=""
+
+# NOTE: OBSIDIAN_AUTH_TOKEN is named by obsidian-headless, not this project.
+# It doesn't use the OBSIDIAN_GIT_ prefix because ob reads it directly.
 [ -z "${OBSIDIAN_AUTH_TOKEN:-}" ]     && missing="${missing} OBSIDIAN_AUTH_TOKEN"
 [ -z "${OBSIDIAN_GIT_VAULT_NAME:-}" ] && missing="${missing} OBSIDIAN_GIT_VAULT_NAME"
 [ -z "${OBSIDIAN_GIT_REMOTE_URL:-}" ] && missing="${missing} OBSIDIAN_GIT_REMOTE_URL"
@@ -81,6 +84,9 @@ else
   echo "The container will retry connecting every 30 seconds"
   echo "until the key is authorized."
   log_banner "END SSH KEY"
+
+  # Also log with prefix so it's filterable
+  log "SSH public key: $(cat "${SSH_KEY}.pub")"
 fi
 
 # Ensure correct permissions (SSH is strict about this)
@@ -104,7 +110,8 @@ EOF
 
 chmod 600 "${SSH_CONFIG}"
 
-# Point git to our SSH config
+# GIT_SSH_COMMAND is used by git commands within this script (e.g., clone).
+# For the longrun services, core.sshCommand is set per-repo below (step 5).
 export GIT_SSH_COMMAND="ssh -F ${SSH_CONFIG}"
 
 log "SSH configured (StrictHostKeyChecking=accept-new)"
@@ -114,6 +121,13 @@ log "SSH configured (StrictHostKeyChecking=accept-new)"
 # ---------------------------------------------------------------------------
 RETRY_INTERVAL=30
 
+clean_vault() {
+  # Remove all files including dotfiles, except /vault itself
+  rm -rf /vault/.git
+  # Using find to catch dotfiles that glob misses
+  find /vault -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+}
+
 if [ -d "/vault/.git" ]; then
   log "Git repository already exists at /vault"
   # Ensure remote is up to date
@@ -122,20 +136,23 @@ else
   log "Cloning ${OBSIDIAN_GIT_REMOTE_URL} into /vault..."
 
   while true; do
+    # Try with the configured branch first
     if git clone --branch "${OBSIDIAN_GIT_BRANCH}" "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
-      log "Git clone successful"
+      log "Git clone successful (branch: ${OBSIDIAN_GIT_BRANCH})"
       break
     fi
 
-    # Clone might fail because the branch doesn't exist yet on a new repo.
-    # Try cloning without --branch and create it locally.
+    # Clean up partial state before second attempt
+    clean_vault
+
+    # Branch might not exist yet on a new/empty repo — try default branch
     if git clone "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
-      log "Git clone successful (default branch)"
+      log "Git clone successful (default branch). Will create '${OBSIDIAN_GIT_BRANCH}' branch."
       break
     fi
 
-    # If we get here, clone failed (probably SSH key not authorized yet)
-    rm -rf /vault/.git /vault/* 2>/dev/null || true
+    # Both attempts failed — clean up and retry after delay
+    clean_vault
     log "Git clone failed. Retrying in ${RETRY_INTERVAL}s..."
     log "If you just generated a new SSH key, add it to your git server."
     sleep "${RETRY_INTERVAL}"
@@ -148,7 +165,7 @@ fi
 git -C /vault config user.name "${OBSIDIAN_GIT_USER_NAME}"
 git -C /vault config user.email "${OBSIDIAN_GIT_USER_EMAIL}"
 
-# Set the SSH command persistently for this repo
+# Set the SSH command persistently for this repo (used by longrun services)
 git -C /vault config core.sshCommand "ssh -F ${SSH_CONFIG}"
 
 # Ensure we're on the right branch
@@ -161,28 +178,63 @@ log "Git configured (user: ${OBSIDIAN_GIT_USER_NAME}, branch: ${OBSIDIAN_GIT_BRA
 
 # ---------------------------------------------------------------------------
 # 6. Vault .gitignore
+#
+# Uses start/end markers so the block can be updated on image upgrades.
 # ---------------------------------------------------------------------------
 GITIGNORE="/vault/.gitignore"
+MARKER_START="# --- obsidian-git-backup managed entries ---"
+MARKER_END="# --- end obsidian-git-backup ---"
 
-# Only write if it doesn't exist or is missing our marker
-if [ ! -f "${GITIGNORE}" ] || ! grep -q "obsidian-git-backup" "${GITIGNORE}" 2>/dev/null; then
-  log "Writing vault .gitignore..."
-  cat >> "${GITIGNORE}" <<'EOF'
-
-# --- obsidian-git-backup managed entries ---
+MANAGED_BLOCK="${MARKER_START}
 # Obsidian workspace state (changes on every app focus, causes churn)
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
+.obsidian/workspace*.json
+
+# Obsidian graph view state (changes when graph is opened/panned)
+.obsidian/graph.json
 
 # Obsidian cache (rebuilt automatically)
 .obsidian/cache/
 
 # Obsidian trash
 .trash/
-# --- end obsidian-git-backup ---
-EOF
+
+# NOTE: Some plugins write runtime state to .obsidian/plugins/*/data.json.
+# If you see excessive commits from plugin data, you can add exclusions here.
+# Example: .obsidian/plugins/dataview/data.json
+${MARKER_END}"
+
+if [ ! -f "${GITIGNORE}" ]; then
+  log "Creating vault .gitignore..."
+  printf '%s\n' "${MANAGED_BLOCK}" > "${GITIGNORE}"
+elif grep -q "${MARKER_START}" "${GITIGNORE}" 2>/dev/null; then
+  # Replace existing managed block (supports image upgrades)
+  log "Updating vault .gitignore managed entries..."
+  # Use a temp file for atomic replacement
+  tmp="$(mktemp)"
+  in_block=false
+  while IFS= read -r line; do
+    case "${line}" in
+      "${MARKER_START}")
+        in_block=true
+        ;;
+      "${MARKER_END}")
+        in_block=false
+        ;;
+      *)
+        if ! ${in_block}; then
+          printf '%s\n' "${line}"
+        fi
+        ;;
+    esac
+  done < "${GITIGNORE}" > "${tmp}"
+  # Append fresh managed block
+  printf '\n%s\n' "${MANAGED_BLOCK}" >> "${tmp}"
+  mv "${tmp}" "${GITIGNORE}"
 else
-  log "Vault .gitignore already contains managed entries"
+  log "Appending managed entries to vault .gitignore..."
+  printf '\n%s\n' "${MANAGED_BLOCK}" >> "${GITIGNORE}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -190,14 +242,28 @@ fi
 # ---------------------------------------------------------------------------
 log "Setting up obsidian-headless sync..."
 
-OB_SETUP_ARGS="--vault ${OBSIDIAN_GIT_VAULT_NAME} --path /vault"
+# Build args list properly to handle values with spaces and special chars
+set -- --vault "${OBSIDIAN_GIT_VAULT_NAME}" --path /vault
 
 if [ -n "${OBSIDIAN_GIT_E2EE_PASSWORD:-}" ]; then
-  OB_SETUP_ARGS="${OB_SETUP_ARGS} --password ${OBSIDIAN_GIT_E2EE_PASSWORD}"
+  # NOTE: The password is passed as a CLI argument which is visible in
+  # /proc/*/cmdline. obsidian-headless does not currently support
+  # --password-file or --password-stdin. This is acceptable in a container
+  # with its own PID namespace (the default).
+  set -- "$@" --password "${OBSIDIAN_GIT_E2EE_PASSWORD}"
 fi
 
-# ob sync-setup is idempotent — safe to run even if already configured
-ob sync-setup ${OB_SETUP_ARGS}
+# ob sync-setup is idempotent — safe to run even if already configured.
+# OBSIDIAN_AUTH_TOKEN is read from the environment by ob directly.
+if ! ob sync-setup "$@" 2>&1; then
+  log_error "obsidian-headless sync-setup failed"
+  log_error "Common causes:"
+  log_error "  - OBSIDIAN_AUTH_TOKEN is invalid or expired (re-run 'ob login')"
+  log_error "  - OBSIDIAN_GIT_VAULT_NAME '${OBSIDIAN_GIT_VAULT_NAME}' doesn't match a remote vault"
+  log_error "    (run 'ob sync-list-remote' to see available vaults)"
+  log_error "  - E2EE password is incorrect (if vault uses encryption)"
+  exit 1
+fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 log "Initialization complete"
