@@ -11,6 +11,7 @@
 
 services:
   obsidian-backup:
+    # No pre-built image published yet — build locally:
     build: .
     container_name: obsidian-git-backup
     restart: unless-stopped
