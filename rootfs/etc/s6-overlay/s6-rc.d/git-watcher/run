@@ -1,0 +1,3 @@
+#!/bin/sh
+# Git filesystem watcher service
+exec /usr/local/bin/git-watcher.sh

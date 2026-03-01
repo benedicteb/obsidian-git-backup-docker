@@ -1,0 +1,3 @@
+#!/bin/sh
+# Obsidian headless continuous sync service
+exec ob sync --continuous --path /vault
