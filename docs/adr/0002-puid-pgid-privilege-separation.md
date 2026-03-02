@@ -95,3 +95,55 @@ Implementation:
   changes, not on normal restarts.
 - PUID=0 is explicitly blocked. Users who genuinely need root execution
   must modify the image.
+
+## Lessons learned during implementation
+
+### 1. Docker Compose `environment` overrides `env_file` — silently
+
+The initial implementation had both `env_file: .env` and an `environment`
+block in `docker-compose.yml`:
+
+```yaml
+env_file:
+  - .env
+environment:
+  - PUID=${PUID:-1000}
+```
+
+This is **broken** because Docker Compose resolves `${PUID:-1000}` from the
+**host shell environment**, not from `env_file`. If the user sets `PUID=501`
+in their `.env` file but doesn't `export PUID=501` in their shell, the
+`environment` block evaluates to `PUID=1000`. Since `environment` takes
+precedence over `env_file`, the container always got 1000.
+
+**Fix**: Remove the `environment` block. Defaults come from `ENV` in the
+Dockerfile. The env file cleanly overrides them.
+
+**Rule**: Never duplicate a variable in both `env_file` and `environment`.
+If you need defaults, put them in the Dockerfile `ENV` directive or in the
+init script. Let `env_file` be the single source of truth.
+
+### 2. macOS Docker cannot `chown` bind-mounted files to a different UID
+
+On macOS, Docker's filesystem driver (virtiofs/grpcfuse) restricts `chown`
+on bind-mounted volumes. You can `chown` files to the UID that already owns
+them (no-op), but you **cannot** change ownership to a different UID — even
+as root inside the container. This means:
+
+- `chown 501:20 /config/file` succeeds if the host file is owned by 501:20
+- `chown 1000:1000 /config/file` fails with "Permission denied" if the
+  host file is owned by 501:20
+
+This is why getting the PUID/PGID correct is critical on macOS. The
+init-usermap chown is only needed on Linux (where it works), and on macOS
+it's effectively a no-op when PUID matches the host user — which is exactly
+what we want. But if PUID is wrong (e.g., the `environment` override bug
+above), the chown fails hard and the container won't start.
+
+### 3. `with-contenv` is required for s6-rc services to see container env vars
+
+s6-overlay does not automatically pass the container's environment to
+services. Oneshot `up` commands need `with-contenv` as an execline prefix,
+and longrun `run` scripts need the `#!/command/with-contenv sh` shebang.
+Without this, PUID/PGID (and all other user-set env vars) are invisible
+to the service scripts.
