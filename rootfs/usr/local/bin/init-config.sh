@@ -46,7 +46,6 @@ if [ -n "$missing" ]; then
   for var in ${missing}; do
     log_error "  - ${var}"
   done
-  log_error ""
   log_error "Copy .env.example to .env and fill in the required values."
   log_error "See the README for how to get each value."
   exit 1
@@ -315,14 +314,12 @@ if [ "${ob_exit:-0}" -ne 0 ]; then
   if [ -n "${ob_output:-}" ]; then
     log_error "ob output: ${ob_output}"
   fi
-  log_error ""
   # Exit code 2 = password validation failure in ob
   if [ "${ob_exit:-0}" -eq 2 ]; then
     log_error "Password validation failed."
     if [ -n "${OBSIDIAN_GIT_E2EE_PASSWORD:-}" ]; then
       log_error "OBSIDIAN_GIT_E2EE_PASSWORD is set (${#OBSIDIAN_GIT_E2EE_PASSWORD} chars) but was rejected."
       log_error "Check that the password matches exactly (including special characters)."
-      log_error ""
       log_error "If your password contains special characters ($ \\ \" ' ! #), make sure"
       log_error "it is correctly set in your .env file. In Docker Compose .env files:"
       log_error "  - Values are taken literally (no shell expansion)"
