@@ -73,6 +73,12 @@ You need three values:
 docker compose up -d
 ```
 
+> **macOS users with bind mounts:** If you're mounting host directories
+> (e.g., `./obsidian-config:/config`), you must set `PUID` and `PGID` in
+> your `.env` to avoid "permission denied" errors. Run `id -u` and `id -g`
+> to find your values (typically 501 and 20). See
+> [User / Group Identifiers](#user--group-identifiers-puidpgid) for details.
+
 ### 3. Set Up SSH Key
 
 The container needs an SSH key to push to your git remote. You have two
@@ -97,6 +103,10 @@ The container retries every 30 seconds — once you add the key, it will
 connect automatically. No restart needed.
 
 #### Option B: Bring your own SSH key (bind mount)
+
+> **Important:** Bind mounts require matching `PUID`/`PGID` on macOS
+> (and recommended on Linux). See
+> [User / Group Identifiers](#user--group-identifiers-puidpgid).
 
 If you already have an SSH key you want to use (e.g., a deploy key), you can
 bind-mount a local directory into `/config` that contains it.
@@ -157,8 +167,8 @@ You should see:
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
-| `PUID` | No | `1000` | Container user UID. Set to your host UID for bind mounts. |
-| `PGID` | No | `1000` | Container group GID. Set to your host GID for bind mounts. |
+| `PUID` | No | `1000` | Your host user ID. Needed for bind mounts — run `id -u` to find it. |
+| `PGID` | No | `1000` | Your host group ID. Needed for bind mounts — run `id -g` to find it. |
 
 \* `OBSIDIAN_AUTH_TOKEN` is read directly by obsidian-headless. It does not use
 the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.

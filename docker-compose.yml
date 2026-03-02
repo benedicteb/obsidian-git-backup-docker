@@ -20,13 +20,11 @@ services:
       - .env
 
     environment:
-      # Match container UID/GID to your host user to avoid permission
-      # issues with bind mounts. Required on macOS, recommended on Linux.
-      #
-      #   macOS:  PUID=501, PGID=20    (run `id -u` / `id -g` to check)
-      #   Linux:  PUID=1000, PGID=1000 (common default)
-      #
-      # Not needed when using Docker named volumes (the default below).
+      # Container user identity — prevents "permission denied" on bind mounts.
+      # Run `id -u` / `id -g` on your host and set these values:
+      #   macOS:  PUID=501, PGID=20
+      #   Linux:  PUID=1000, PGID=1000
+      # Not needed with named volumes (the default below).
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
 

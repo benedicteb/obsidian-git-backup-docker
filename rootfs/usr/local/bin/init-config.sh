@@ -55,10 +55,13 @@ missing=""
 [ -z "${OBSIDIAN_GIT_REMOTE_URL:-}" ] && missing="${missing} OBSIDIAN_GIT_REMOTE_URL"
 
 if [ -n "$missing" ]; then
-  log_error "Missing required environment variables:${missing}"
+  log_error "Missing required environment variables:"
+  for var in ${missing}; do
+    log_error "  - ${var}"
+  done
   log_error ""
-  log_error "Set these in your docker-compose.yml or with -e flags."
-  log_error "See .env.example for documentation."
+  log_error "Copy .env.example to .env and fill in the required values."
+  log_error "See the README for how to get each value."
   exit 1
 fi
 
