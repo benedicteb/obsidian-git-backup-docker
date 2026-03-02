@@ -8,6 +8,35 @@ Every time Obsidian Sync delivers changes, they are committed and pushed to
 your git remote — giving you a private, versioned backup of your vault with
 full history.
 
+## Using the Pre-Built Image
+
+Pre-built images are published to Docker Hub for `linux/amd64` and `linux/arm64`:
+
+```sh
+docker pull benedicteb/obsidian-git-backup:latest
+```
+
+To use a specific version:
+
+```sh
+docker pull benedicteb/obsidian-git-backup:v0.1.0
+```
+
+See the [Docker Hub page](https://hub.docker.com/r/benedicteb/obsidian-git-backup)
+for available tags.
+
+To use the pre-built image instead of building from source, update your
+`docker-compose.yml`:
+
+```yaml
+services:
+  obsidian-backup:
+    image: benedicteb/obsidian-git-backup:latest
+    # ... rest of config
+```
+
+To build from source instead, replace `image:` with `build: .`.
+
 ## How It Works
 
 ```
@@ -249,19 +278,41 @@ Run one container per vault. Each needs its own `.env` file (with a different
 ```yaml
 services:
   vault-personal:
-    build: .
+    image: benedicteb/obsidian-git-backup:latest
     env_file: .env.personal
     volumes:
       - config-personal:/config
       - vault-personal:/vault
 
   vault-work:
-    build: .
+    image: benedicteb/obsidian-git-backup:latest
     env_file: .env.work
     volumes:
       - config-work:/config
       - vault-work:/vault
 ```
+
+## Publishing
+
+Pushes to `main` automatically build and publish the Docker image to
+[Docker Hub](https://hub.docker.com/r/benedicteb/obsidian-git-backup).
+
+Version tags are created automatically based on
+[conventional commits](https://www.conventionalcommits.org/):
+
+| Commit prefix | Version bump | Example |
+|---|---|---|
+| `feat!:` or `BREAKING CHANGE` in body | Major (0.1.0 → 1.0.0) | `feat!: rename all env vars` |
+| `feat:` | Minor (0.1.0 → 0.2.0) | `feat: add LLM commit messages` |
+| `fix:`, `docs:`, `chore:`, etc. | Patch (0.1.0 → 0.1.1) | `fix: handle empty vault` |
+
+Two GitHub Actions secrets must be configured (Settings → Secrets and
+variables → Actions):
+
+| Secret | Where to get it |
+|---|---|
+| `DOCKERHUB_USERNAME` | Your Docker Hub username |
+| `DOCKERHUB_TOKEN` | Docker Hub → Account Settings → Security → New Access Token |
 
 ## Limitations (PoC)
 

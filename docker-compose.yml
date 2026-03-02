@@ -11,8 +11,9 @@
 
 services:
   obsidian-backup:
-    # No pre-built image published yet — build locally:
-    build: .
+    image: benedicteb/obsidian-git-backup:latest
+    # To build from source instead, comment out 'image' and uncomment 'build':
+    # build: .
     container_name: obsidian-git-backup
     restart: unless-stopped
 
