@@ -28,6 +28,10 @@ case "${DEBOUNCE}" in
     echo "[git-watcher] ERROR: OBSIDIAN_GIT_DEBOUNCE_SECS must be a positive integer, got: '${DEBOUNCE}'" >&2
     exit 1
     ;;
+  0)
+    echo "[git-watcher] ERROR: OBSIDIAN_GIT_DEBOUNCE_SECS must be >= 1 (got 0). A zero debounce commits on every file event." >&2
+    exit 1
+    ;;
 esac
 
 # ---------------------------------------------------------------------------

@@ -91,7 +91,7 @@ RUN apk add --no-cache --virtual .build-deps \
 # The node:22-alpine base image includes a 'node' user (UID/GID 1000).
 # Rename it to 'obsidian' for clarity. The UID/GID will be remapped at
 # runtime by init-usermap to match PUID/PGID.
-RUN deluser node && \
+RUN (deluser node 2>/dev/null || true) && \
     addgroup -g 1000 obsidian && \
     adduser -u 1000 -G obsidian -s /bin/sh -D obsidian && \
     mkdir -p /vault /config/.ssh && \
