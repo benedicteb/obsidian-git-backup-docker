@@ -14,6 +14,12 @@
 set -eu
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+LOG_TAG="git-watcher"
+. /usr/local/lib/log-functions.sh
+
+# ---------------------------------------------------------------------------
 # Configuration (from environment, with defaults)
 # ---------------------------------------------------------------------------
 DEBOUNCE="${OBSIDIAN_GIT_DEBOUNCE_SECS:-30}"
@@ -25,25 +31,14 @@ BRANCH="${OBSIDIAN_GIT_BRANCH:-main}"
 # ---------------------------------------------------------------------------
 case "${DEBOUNCE}" in
   ''|*[!0-9]*)
-    echo "[git-watcher] ERROR: OBSIDIAN_GIT_DEBOUNCE_SECS must be a positive integer, got: '${DEBOUNCE}'" >&2
+    log_error "OBSIDIAN_GIT_DEBOUNCE_SECS must be a positive integer, got: '${DEBOUNCE}'"
     exit 1
     ;;
   0)
-    echo "[git-watcher] ERROR: OBSIDIAN_GIT_DEBOUNCE_SECS must be >= 1 (got 0). A zero debounce commits on every file event." >&2
+    log_error "OBSIDIAN_GIT_DEBOUNCE_SECS must be >= 1 (got 0). A zero debounce commits on every file event."
     exit 1
     ;;
 esac
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-log() {
-  echo "[git-watcher] $*"
-}
-
-log_error() {
-  echo "[git-watcher] ERROR: $*" >&2
-}
 
 # Track consecutive push failures for escalating warnings
 push_failures=0
