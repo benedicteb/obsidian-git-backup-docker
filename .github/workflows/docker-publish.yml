@@ -140,7 +140,6 @@ jobs:
       # Tags:
       #   - benedicteb/obsidian-git-backup:latest
       #   - benedicteb/obsidian-git-backup:vX.Y.Z
-      #   - benedicteb/obsidian-git-backup:X.Y.Z (without v prefix)
       # -----------------------------------------------------------------
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -158,3 +157,14 @@ jobs:
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      # -----------------------------------------------------------------
+      # Sync README to Docker Hub description
+      # -----------------------------------------------------------------
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAME }}
+          readme-filepath: ./README.md
