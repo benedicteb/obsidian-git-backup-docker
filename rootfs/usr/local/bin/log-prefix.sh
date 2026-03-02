@@ -12,7 +12,7 @@
 #   - Exit code: the real exit code is preserved and returned to s6
 #   - No SIGPIPE risk: the child writes to a FIFO, not a pipe
 #
-# Requires: mkfifo (coreutils), BusyBox sed -u (unbuffered)
+# Requires: mkfifo (coreutils)
 # =============================================================================
 set -eu
 
@@ -23,10 +23,13 @@ shift
 FIFO="$(mktemp -u /tmp/log-prefix.XXXXXX)"
 mkfifo "${FIFO}"
 
-# Start the prefixer in the background — reads from FIFO, writes to stdout
-# Use | as sed delimiter to avoid issues if PREFIX contains /
-sed -u "s|^|${PREFIX} |" < "${FIFO}" &
-SED_PID=$!
+# Start the prefixer in the background — reads from FIFO, writes to stdout.
+# Uses a while-read loop instead of sed because BusyBox sed does not support
+# -u (unbuffered). Shell's built-in read/echo is naturally line-buffered.
+while IFS= read -r line; do
+    printf '%s %s\n' "${PREFIX}" "${line}"
+done < "${FIFO}" &
+READER_PID=$!
 
 # Run the actual command, sending stdout+stderr to the FIFO.
 # This is a direct child of this script, so we can signal it explicitly.
@@ -40,18 +43,20 @@ trap 'rm -f "${FIFO}"' EXIT
 
 # Wait for the command to finish and capture its exit code.
 #
-# If a trapped signal (TERM/INT) interrupts wait, the trap handler runs
-# (forwarding SIGTERM to the child) and wait returns 128+signum. We then
-# re-wait to collect the child's actual exit code after it handles the signal.
-if ! wait "${CMD_PID}" 2>/dev/null; then
-    # Either the child exited non-zero, or wait was interrupted by a signal.
-    # Re-wait: if the child is still running (processing our forwarded signal),
-    # this blocks until it exits. If already reaped, returns immediately.
-    wait "${CMD_PID}" 2>/dev/null || true
-fi
+# Disable set -e for the wait block: we need to capture the child's exit
+# code without the shell aborting on non-zero. If a trapped signal (TERM/INT)
+# interrupts wait, it returns 128+signum; we then re-wait for the real code.
+set +e
+wait "${CMD_PID}" 2>/dev/null
 EXIT_CODE=$?
+if [ "${EXIT_CODE}" -gt 128 ] 2>/dev/null; then
+    # wait was interrupted by a signal. Re-wait for the child's real exit code.
+    wait "${CMD_PID}" 2>/dev/null
+    EXIT_CODE=$?
+fi
+set -e
 
-# Command is done — its side of the FIFO is closed, sed gets EOF and exits.
-wait "${SED_PID}" 2>/dev/null || true
+# Command is done — its side of the FIFO is closed, the reader gets EOF.
+wait "${READER_PID}" 2>/dev/null || true
 
 exit "${EXIT_CODE}"
