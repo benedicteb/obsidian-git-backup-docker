@@ -23,6 +23,8 @@ Session summaries live in `docs/sessions/{number}.md`. Check existing files ther
 
 This project uses the **PyCharm** MCP tools (prefixed `pycharm_*`), not WebStorm. Always prefer PyCharm MCP tools when interacting with the IDE.
 
+**Exception:** Do **not** use PyCharm's `execute_terminal_command` to run shell commands. Use the normal Bash tool instead — it is faster, does not require IDE confirmation, and keeps terminal output in the conversation context.
+
 ## Standards
 
 - **Docker**: Follow linuxserver.io conventions — s6-overlay, clear layer separation, non-root runtime where possible, well-documented environment variables.
