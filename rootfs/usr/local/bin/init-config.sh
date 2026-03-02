@@ -20,21 +20,8 @@ set -eu
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-log() {
-  echo "[init-config] $*"
-}
-
-log_error() {
-  echo "[init-config] ERROR: $*" >&2
-}
-
-log_banner() {
-  echo ""
-  echo "========================================"
-  echo "  $*"
-  echo "========================================"
-  echo ""
-}
+LOG_TAG="init-config"
+. /usr/local/lib/log-functions.sh
 
 # Run a command as the obsidian user
 run_as_user() {
@@ -91,14 +78,14 @@ else
   run_as_user ssh-keygen -t ed25519 -f "${SSH_KEY}" -N "" -C "obsidian-git-backup"
 
   log_banner "NEW SSH KEY GENERATED"
-  echo "Add this public key to your git server (e.g., GitHub, GitLab):"
-  echo ""
-  cat "${SSH_KEY}.pub"
-  echo ""
-  echo "Key location: ${SSH_KEY} (inside the /config volume)"
-  echo ""
-  echo "The container will retry connecting every 30 seconds"
-  echo "until the key is authorized."
+  log "Add this public key to your git server (e.g., GitHub, GitLab):"
+  log ""
+  log "$(cat "${SSH_KEY}.pub")"
+  log ""
+  log "Key location: ${SSH_KEY} (inside the /config volume)"
+  log ""
+  log "The container will retry connecting every 30 seconds"
+  log "until the key is authorized."
   log_banner "END SSH KEY"
 
   # Also log with prefix so it's filterable
