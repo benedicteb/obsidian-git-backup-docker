@@ -216,9 +216,19 @@ MANAGED_BLOCK="${MARKER_START}
 # Obsidian trash
 .trash/
 
-# NOTE: Some plugins write runtime state to .obsidian/plugins/*/data.json.
-# If you see excessive commits from plugin data, you can add exclusions here.
-# Example: .obsidian/plugins/dataview/data.json
+# Plugin runtime data — many plugins (Dataview, Various Complements, etc.)
+# write frequently to data.json, causing noisy commits.
+# Remove this line if you want to track plugin settings in git.
+.obsidian/plugins/*/data.json
+
+# Uncomment the following lines if you do NOT want to track Obsidian
+# app configuration (these change when you adjust settings on any device):
+# .obsidian/app.json
+# .obsidian/appearance.json
+# .obsidian/community-plugins.json
+# .obsidian/core-plugins.json
+# .obsidian/core-plugins-migration.json
+# .obsidian/hotkeys.json
 ${MARKER_END}"
 
 if [ ! -f "${GITIGNORE}" ]; then

@@ -119,12 +119,17 @@ done
 
 log "Git repository found. Watching for changes..."
 
-# inotifywait monitors recursively, excluding noisy paths:
-#   .git/       — git's own internal writes would cause feedback loops
-#   .trash/     — Obsidian trash, gitignored
-#   cache/      — Obsidian cache, gitignored, rebuilt automatically
-#   workspace*  — Obsidian workspace state, gitignored, high churn
-#   graph.json  — Obsidian graph view state, gitignored
+# inotifywait monitors recursively, excluding noisy paths.
+# These exclusions should be a superset of the vault .gitignore:
+# any gitignored file should also be excluded here to avoid
+# unnecessary watcher trigger → debounce → "no changes" cycles.
+#
+#   .git/                — git internals (would cause feedback loops)
+#   .trash/              — Obsidian trash
+#   cache/               — Obsidian cache (rebuilt automatically)
+#   workspace*.json      — Obsidian workspace state (high churn)
+#   graph.json           — Obsidian graph view state
+#   plugins/*/data.json  — Plugin runtime data (Dataview, etc.)
 #
 # -m = monitor mode (don't exit after first event)
 # -r = recursive
@@ -136,7 +141,7 @@ log "Git repository found. Watching for changes..."
 # then commit and push.
 
 inotifywait -m -r \
-  --exclude '/\.(git|trash)(/|$)|/\.obsidian/(workspace.*\.json|graph\.json|cache/)' \
+  --exclude '/\.(git|trash)(/|$)|/\.obsidian/(workspace.*\.json|graph\.json|cache/|plugins/[^/]+/data\.json)' \
   -e modify,create,delete,move \
   --format '%w%f' \
   "${VAULT}" |
