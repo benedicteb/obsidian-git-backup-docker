@@ -86,7 +86,7 @@ options:
 
 #### Option A: Let the container generate a key (simplest)
 
-On first run, if no SSH key exists at `/config/.ssh/id_ed25519`, the container
+On first run, if no SSH key exists at `/config/id_ed25519`, the container
 generates a new ed25519 keypair. Check the logs to find the public key:
 
 ```sh
@@ -114,11 +114,10 @@ bind-mount a local directory into `/config` that contains it.
 1. Create a config directory on the host:
 
    ```sh
-   mkdir -p ./obsidian-config/.ssh
-   cp ~/.ssh/my_deploy_key ./obsidian-config/.ssh/id_ed25519
-   cp ~/.ssh/my_deploy_key.pub ./obsidian-config/.ssh/id_ed25519.pub  # optional
-   chmod 700 ./obsidian-config/.ssh
-   chmod 600 ./obsidian-config/.ssh/id_ed25519
+   mkdir -p ./obsidian-config
+   cp ~/.ssh/my_deploy_key ./obsidian-config/id_ed25519
+   cp ~/.ssh/my_deploy_key.pub ./obsidian-config/id_ed25519.pub  # optional
+   chmod 600 ./obsidian-config/id_ed25519
    ```
 
 2. Update your `docker-compose.yml` to use a bind mount instead of a named
@@ -138,9 +137,9 @@ bind-mount a local directory into `/config` that contains it.
 
 The container detects the existing key and uses it — no new key is generated.
 
-> **Note:** The key must be at `/config/.ssh/id_ed25519`. The container sets
-> permissions automatically (`700` on the directory, `600` on the key), so
-> don't worry about permission errors even if your host permissions differ.
+> **Note:** The key must be at `/config/id_ed25519`. The container sets
+> permissions automatically (`600` on the key), so don't worry about
+> permission errors even if your host permissions differ.
 
 ### 4. Verify
 
@@ -177,7 +176,7 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 | Path | Required | Description |
 |---|---|---|
-| `/config` | **Yes** | SSH keys and persistent configuration. Must survive restarts. Can be a named volume (key is auto-generated) or a bind mount (bring your own key — see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
+| `/config` | **Yes** | SSH keys (`id_ed25519`, `ssh_config`, `known_hosts`) and persistent configuration. Must survive restarts. Can be a named volume (key is auto-generated) or a bind mount (bring your own key — see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
 ## User / Group Identifiers (PUID/PGID)
