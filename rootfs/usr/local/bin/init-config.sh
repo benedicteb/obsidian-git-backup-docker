@@ -9,6 +9,11 @@
 # 5. Configures git author
 # 6. Writes vault .gitignore
 # 7. Sets up obsidian-headless sync
+#
+# This script runs as root but delegates user-facing operations
+# (git, ssh, ob) to the 'obsidian' user via su-exec. The init-usermap
+# oneshot has already remapped the obsidian user's UID/GID to match
+# PUID/PGID before this script runs.
 # =============================================================================
 set -eu
 
@@ -29,6 +34,11 @@ log_banner() {
   echo "  $*"
   echo "========================================"
   echo ""
+}
+
+# Run a command as the obsidian user
+run_as_user() {
+  su-exec obsidian "$@"
 }
 
 # ---------------------------------------------------------------------------
@@ -69,12 +79,13 @@ SSH_DIR="/config/.ssh"
 SSH_KEY="${SSH_DIR}/id_ed25519"
 
 mkdir -p "${SSH_DIR}"
+chown obsidian:obsidian "${SSH_DIR}"
 
 if [ -f "${SSH_KEY}" ]; then
   log "Found existing SSH key at ${SSH_KEY}"
 else
   log "No SSH key found. Generating a new ed25519 keypair..."
-  ssh-keygen -t ed25519 -f "${SSH_KEY}" -N "" -C "obsidian-git-backup"
+  run_as_user ssh-keygen -t ed25519 -f "${SSH_KEY}" -N "" -C "obsidian-git-backup"
 
   log_banner "NEW SSH KEY GENERATED"
   echo "Add this public key to your git server (e.g., GitHub, GitLab):"
@@ -89,10 +100,11 @@ else
   log "SSH public key: $(cat "${SSH_KEY}.pub")"
 fi
 
-# Ensure correct permissions (SSH is strict about this)
+# Ensure correct permissions and ownership (SSH is strict about this)
 chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_KEY}"
 [ -f "${SSH_KEY}.pub" ] && chmod 644 "${SSH_KEY}.pub"
+chown -R obsidian:obsidian "${SSH_DIR}"
 
 # ---------------------------------------------------------------------------
 # 3. Configure SSH
@@ -109,6 +121,7 @@ Host *
 EOF
 
 chmod 600 "${SSH_CONFIG}"
+chown obsidian:obsidian "${SSH_CONFIG}"
 
 # GIT_SSH_COMMAND is used by git commands within this script (e.g., clone).
 # For the longrun services, core.sshCommand is set per-repo below (step 5).
@@ -131,13 +144,16 @@ clean_vault() {
 if [ -d "/vault/.git" ]; then
   log "Git repository already exists at /vault"
   # Ensure remote is up to date
-  git -C /vault remote set-url origin "${OBSIDIAN_GIT_REMOTE_URL}" 2>/dev/null || true
+  run_as_user git -C /vault remote set-url origin "${OBSIDIAN_GIT_REMOTE_URL}" 2>/dev/null || true
 else
   log "Cloning ${OBSIDIAN_GIT_REMOTE_URL} into /vault..."
 
+  # Ensure /vault is writable by the obsidian user before cloning
+  chown obsidian:obsidian /vault
+
   while true; do
     # Try with the configured branch first
-    if git clone --branch "${OBSIDIAN_GIT_BRANCH}" "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
+    if run_as_user env GIT_SSH_COMMAND="${GIT_SSH_COMMAND}" git clone --branch "${OBSIDIAN_GIT_BRANCH}" "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
       log "Git clone successful (branch: ${OBSIDIAN_GIT_BRANCH})"
       break
     fi
@@ -146,7 +162,7 @@ else
     clean_vault
 
     # Branch might not exist yet on a new/empty repo — try default branch
-    if git clone "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
+    if run_as_user env GIT_SSH_COMMAND="${GIT_SSH_COMMAND}" git clone "${OBSIDIAN_GIT_REMOTE_URL}" /vault 2>&1; then
       log "Git clone successful (default branch). Will create '${OBSIDIAN_GIT_BRANCH}' branch."
       break
     fi
@@ -162,16 +178,16 @@ fi
 # ---------------------------------------------------------------------------
 # 5. Git configuration
 # ---------------------------------------------------------------------------
-git -C /vault config user.name "${OBSIDIAN_GIT_USER_NAME}"
-git -C /vault config user.email "${OBSIDIAN_GIT_USER_EMAIL}"
+run_as_user git -C /vault config user.name "${OBSIDIAN_GIT_USER_NAME}"
+run_as_user git -C /vault config user.email "${OBSIDIAN_GIT_USER_EMAIL}"
 
 # Set the SSH command persistently for this repo (used by longrun services)
-git -C /vault config core.sshCommand "ssh -F ${SSH_CONFIG}"
+run_as_user git -C /vault config core.sshCommand "ssh -F ${SSH_CONFIG}"
 
 # Ensure we're on the right branch
-CURRENT_BRANCH="$(git -C /vault branch --show-current 2>/dev/null || echo "")"
+CURRENT_BRANCH="$(run_as_user git -C /vault branch --show-current 2>/dev/null || echo "")"
 if [ "${CURRENT_BRANCH}" != "${OBSIDIAN_GIT_BRANCH}" ]; then
-  git -C /vault checkout -B "${OBSIDIAN_GIT_BRANCH}" 2>/dev/null || true
+  run_as_user git -C /vault checkout -B "${OBSIDIAN_GIT_BRANCH}" 2>/dev/null || true
 fi
 
 log "Git configured (user: ${OBSIDIAN_GIT_USER_NAME}, branch: ${OBSIDIAN_GIT_BRANCH})"
@@ -237,6 +253,9 @@ else
   printf '\n%s\n' "${MANAGED_BLOCK}" >> "${GITIGNORE}"
 fi
 
+# Ensure .gitignore is owned by the obsidian user
+chown obsidian:obsidian "${GITIGNORE}"
+
 # ---------------------------------------------------------------------------
 # 7. Obsidian headless setup
 # ---------------------------------------------------------------------------
@@ -255,7 +274,8 @@ fi
 
 # ob sync-setup is idempotent — safe to run even if already configured.
 # OBSIDIAN_AUTH_TOKEN is read from the environment by ob directly.
-if ! ob sync-setup "$@" 2>&1; then
+# Run as the obsidian user so config files are owned correctly.
+if ! run_as_user env OBSIDIAN_AUTH_TOKEN="${OBSIDIAN_AUTH_TOKEN}" ob sync-setup "$@" 2>&1; then
   log_error "obsidian-headless sync-setup failed"
   log_error "Common causes:"
   log_error "  - OBSIDIAN_AUTH_TOKEN is invalid or expired (re-run 'ob login')"
