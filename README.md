@@ -47,10 +47,16 @@ You need three values:
   To get it:
   1. Install obsidian-headless: `npm install -g obsidian-headless`
   2. Run `ob login` and follow the prompts
-  3. Copy the `token` value from the config file:
-     - **macOS**: `~/Library/Application Support/obsidian-headless/config.json`
-     - **Linux**: `~/.config/obsidian-headless/config.json`
-     - **Windows**: `%APPDATA%\obsidian-headless\config.json`
+  3. Copy the contents of the `auth_token` file:
+     - **macOS**: `~/.obsidian-headless/auth_token`
+     - **Linux**: `~/.config/obsidian-headless/auth_token`
+     - **Windows**: `%USERPROFILE%\.obsidian-headless\auth_token`
+
+  The file contains the raw token string (not JSON). For example:
+  ```sh
+  cat ~/.config/obsidian-headless/auth_token   # Linux
+  cat ~/.obsidian-headless/auth_token           # macOS
+  ```
 
   > **Note:** `OBSIDIAN_AUTH_TOKEN` does not use the `OBSIDIAN_GIT_` prefix
   > because it's read directly by obsidian-headless, not this project.
