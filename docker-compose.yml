@@ -19,6 +19,17 @@ services:
     env_file:
       - .env
 
+    environment:
+      # Match container UID/GID to your host user to avoid permission
+      # issues with bind mounts. Required on macOS, recommended on Linux.
+      #
+      #   macOS:  PUID=501, PGID=20    (run `id -u` / `id -g` to check)
+      #   Linux:  PUID=1000, PGID=1000 (common default)
+      #
+      # Not needed when using Docker named volumes (the default below).
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
     volumes:
       # REQUIRED: Persists SSH keys across container restarts.
       # Without this, a new SSH key is generated on every restart.
