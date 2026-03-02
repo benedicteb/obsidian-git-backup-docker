@@ -94,7 +94,7 @@ RUN apk add --no-cache --virtual .build-deps \
 RUN (deluser node 2>/dev/null || true) && \
     addgroup -g 1000 obsidian && \
     adduser -u 1000 -G obsidian -s /bin/sh -D obsidian && \
-    mkdir -p /vault /config/.ssh && \
+    mkdir -p /vault /config && \
     chown -R obsidian:obsidian /vault /config
 
 # ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ ENV PGID=1000
 # ---------------------------------------------------------------------------
 # Volumes
 #
-#   /config  — SSH keys and persistent state (REQUIRED mount)
+#   /config  — SSH keys (id_ed25519, ssh_config, known_hosts) and persistent state (REQUIRED mount)
 #   /vault   — Obsidian vault data + git working tree (optional mount)
 # ---------------------------------------------------------------------------
 VOLUME ["/config", "/vault"]
