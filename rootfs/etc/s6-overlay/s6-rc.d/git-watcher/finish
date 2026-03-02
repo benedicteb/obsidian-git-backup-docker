@@ -11,5 +11,5 @@ su-exec obsidian sh -c "
   git add -A 2>/dev/null || exit 0
   git diff --cached --quiet 2>/dev/null && exit 0
   git commit -m \"shutdown sync: \$(date -u '+%Y-%m-%d %H:%M:%S UTC')\" 2>/dev/null || exit 0
-  git push origin \"${BRANCH}\" 2>/dev/null || true
+  git push -u origin \"${BRANCH}\" 2>/dev/null || true
 "
