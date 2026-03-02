@@ -34,13 +34,17 @@ RUN case "${TARGETARCH}" in \
 # ---------------------------------------------------------------------------
 # Install system dependencies
 #
-# xz is only needed for extracting s6-overlay tarballs and is removed after.
+# su-exec   — lightweight privilege de-escalation (Alpine alternative to gosu)
+# shadow    — usermod/groupmod for runtime UID/GID remapping
+# xz        — only needed for extracting s6-overlay tarballs (removed after)
 # ---------------------------------------------------------------------------
 RUN apk add --no-cache \
     git \
     openssh-client \
     inotify-tools \
     findutils \
+    su-exec \
+    shadow \
     xz
 
 # ---------------------------------------------------------------------------
@@ -70,9 +74,15 @@ RUN npm install -g obsidian-headless && \
     npm cache clean --force
 
 # ---------------------------------------------------------------------------
-# Create runtime directories
+# Create app user and runtime directories
+#
+# Default UID/GID is 1000. Users override at runtime via PUID/PGID env vars.
+# The init-usermap oneshot remaps the UID/GID before services start.
 # ---------------------------------------------------------------------------
-RUN mkdir -p /vault /config/.ssh
+RUN addgroup -g 1000 obsidian && \
+    adduser -u 1000 -G obsidian -s /bin/sh -D obsidian && \
+    mkdir -p /vault /config/.ssh && \
+    chown -R obsidian:obsidian /vault /config
 
 # ---------------------------------------------------------------------------
 # Copy rootfs overlay (s6 service definitions + scripts)
@@ -87,6 +97,20 @@ RUN chmod +x /usr/local/bin/*.sh
 # ---------------------------------------------------------------------------
 # If a oneshot init fails, stop the container (fail fast)
 ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
+# ---------------------------------------------------------------------------
+# PUID/PGID — Runtime user identity (linuxserver.io convention)
+#
+# Set these to your host user's UID/GID to avoid permission issues with
+# bind mounts (especially on macOS).
+#
+#   docker run -e PUID=501 -e PGID=20 ...       # typical macOS
+#   docker run -e PUID=1000 -e PGID=1000 ...    # typical Linux
+#
+# Defaults to 1000:1000 (the 'obsidian' user created above).
+# ---------------------------------------------------------------------------
+ENV PUID=1000
+ENV PGID=1000
 
 # ---------------------------------------------------------------------------
 # Volumes
