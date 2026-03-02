@@ -48,6 +48,11 @@ log_error() {
 # Track consecutive push failures for escalating warnings
 push_failures=0
 
+# Track whether the remote branch exists. Starts false — set to true after
+# the first successful push, or if ls-remote confirms the branch exists.
+# Avoids a network round-trip (ls-remote) on every commit cycle.
+remote_branch_verified=false
+
 # ---------------------------------------------------------------------------
 # Commit and push any staged changes
 # ---------------------------------------------------------------------------
@@ -74,15 +79,25 @@ do_commit_and_push() {
   # Check if the remote branch exists yet. On a brand-new bare repo the
   # remote has no branches at all — pulling would fail with
   # "couldn't find remote ref <branch>".
-  if git -C "${VAULT}" ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+  #
+  # We cache the result after the first successful push to avoid a network
+  # round-trip (ls-remote) on every commit cycle.
+  if ! "${remote_branch_verified}"; then
+    if git -C "${VAULT}" ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+      remote_branch_verified=true
+    fi
+  fi
+
+  if "${remote_branch_verified}"; then
     # Remote branch exists — pull before push to handle any divergence
     if ! git -C "${VAULT}" pull --rebase origin "${BRANCH}" 2>&1; then
-      log_error "git pull --rebase failed. Aborting rebase and continuing."
+      log_error "git pull --rebase failed — your local commit is safe but may diverge from the remote."
+      log_error "This can happen if files were pushed from another source."
       git -C "${VAULT}" rebase --abort 2>/dev/null || true
       # Don't return error — local commit is preserved, will retry next cycle
     fi
   else
-    log "Remote branch '${BRANCH}' does not exist yet — skipping pull (first push)"
+    log "Remote is empty — this will be the first push to origin/${BRANCH}"
   fi
 
   # Use -u (--set-upstream) so the first push to an empty remote creates the
@@ -90,14 +105,15 @@ do_commit_and_push() {
   push_output="$(git -C "${VAULT}" push -u origin "${BRANCH}" 2>&1)" && {
     log "Pushed to origin/${BRANCH}"
     push_failures=0
+    remote_branch_verified=true
     return 0
   }
 
   # Push failed
   push_failures=$((push_failures + 1))
-  log_error "git push failed (attempt #${push_failures}):"
+  log_error "git push failed (${push_failures} consecutive failure(s)):"
   log_error "${push_output}"
-  log_error "Local commit was saved. Push will be retried on next change."
+  log_error "Your commit is saved locally. Push will be retried on the next file change."
 
   if [ "${push_failures}" -ge 5 ]; then
     log_error "WARNING: ${push_failures} consecutive push failures. Backup is NOT reaching the remote."
