@@ -128,7 +128,7 @@ ENV PGID=1000
 # ---------------------------------------------------------------------------
 # Volumes
 #
-#   /config  — SSH keys (id_ed25519, ssh_config, known_hosts) and persistent state (REQUIRED mount)
+#   /config  — Persistent configuration and SSH keys (REQUIRED mount)
 #   /vault   — Obsidian vault data + git working tree (optional mount)
 # ---------------------------------------------------------------------------
 VOLUME ["/config", "/vault"]
