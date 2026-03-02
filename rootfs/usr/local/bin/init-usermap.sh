@@ -12,13 +12,8 @@
 # =============================================================================
 set -eu
 
-log() {
-  echo "[init-usermap] $*"
-}
-
-log_error() {
-  echo "[init-usermap] ERROR: $*" >&2
-}
+LOG_TAG="init-usermap"
+. /usr/local/lib/log-functions.sh
 
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
