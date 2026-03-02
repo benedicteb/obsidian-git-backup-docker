@@ -5,9 +5,17 @@
 # parsing conventional commit messages since the last tag, creates a git tag,
 # and pushes both :latest and :vX.Y.Z to Docker Hub.
 #
-# Required GitHub secrets:
+# Required GitHub secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME — Docker Hub username
 #   DOCKERHUB_TOKEN   — Docker Hub access token (not password)
+#
+# Versioning rules (conventional commits):
+#   - feat!: or BREAKING CHANGE in body → major bump (0.1.0 → 1.0.0)
+#   - feat:                             → minor bump (0.1.0 → 0.2.0)
+#   - fix:, docs:, chore:, etc.        → patch bump (0.1.0 → 0.1.1)
+#
+# Note: every push to main creates a release. Use [skip ci] in commit
+# message to skip if needed.
 # =============================================================================
 
 name: Docker Publish
@@ -16,10 +24,11 @@ on:
   push:
     branches: [main]
 
-# Prevent concurrent builds for the same branch
+# Cancel in-progress runs for the same branch. Newer push wins.
+# This prevents race conditions where two runs compute the same version tag.
 concurrency:
   group: docker-publish-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   IMAGE_NAME: benedicteb/obsidian-git-backup
@@ -27,6 +36,7 @@ env:
 jobs:
   version-and-publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write  # Needed to push git tags
 
@@ -40,46 +50,72 @@ jobs:
           fetch-depth: 0
 
       # -----------------------------------------------------------------
+      # Preflight: verify required secrets are configured
+      # -----------------------------------------------------------------
+      - name: Check required secrets
+        env:
+          HAS_USERNAME: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+          HAS_TOKEN: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          if [ "$HAS_USERNAME" != "true" ]; then missing="$missing DOCKERHUB_USERNAME"; fi
+          if [ "$HAS_TOKEN" != "true" ]; then missing="$missing DOCKERHUB_TOKEN"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required GitHub secrets:$missing"
+            echo "::error::Go to: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------
       # Determine next semantic version from conventional commits
       #
-      # Rules:
-      #   - feat:           → minor bump (0.1.0 → 0.2.0)
-      #   - fix:, perf:     → patch bump (0.1.0 → 0.1.1)
-      #   - BREAKING CHANGE → major bump (0.1.0 → 1.0.0)
-      #   - docs:, chore:, refactor:, etc. → patch bump (still a release)
-      #
-      # If no tags exist, starts at v0.1.0.
+      # Scans commits since the last vN.N.N tag. Tags with pre-release
+      # suffixes (e.g., v1.0.0-rc1) are ignored.
       # -----------------------------------------------------------------
       - name: Determine next version
         id: version
         run: |
-          # Get the latest semver tag, or default to v0.0.0 (so first bump
-          # produces v0.1.0 for a feat: or v0.0.1 for a fix:)
-          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          set -euo pipefail
+
+          # Get the latest strict semver tag (vN.N.N only, no pre-release)
+          LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -1 || true)
 
           if [ -z "$LATEST_TAG" ]; then
             LATEST_TAG="v0.0.0"
             COMMIT_RANGE="HEAD"
-            echo "No existing tags found. Starting from v0.0.0."
+            echo "No existing tags found. Starting from v0.0.0." >&2
           else
             COMMIT_RANGE="${LATEST_TAG}..HEAD"
-            echo "Latest tag: ${LATEST_TAG}"
+            echo "Latest tag: ${LATEST_TAG}" >&2
           fi
 
           # Parse version components
           VERSION="${LATEST_TAG#v}"
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
+          MAJOR=$(printf '%s' "$VERSION" | cut -d. -f1)
+          MINOR=$(printf '%s' "$VERSION" | cut -d. -f2)
+          PATCH=$(printf '%s' "$VERSION" | cut -d. -f3)
 
-          # Scan commit messages for bump signals
-          BUMP="patch"  # default
+          # Validate parsed components are integers
+          case "${MAJOR}${MINOR}${PATCH}" in
+            *[!0-9]*)
+              echo "::error::Could not parse semver from tag '${LATEST_TAG}' (got ${MAJOR}.${MINOR}.${PATCH})"
+              exit 1
+              ;;
+          esac
 
-          COMMITS=$(git log --pretty=format:"%s%n%b" "$COMMIT_RANGE" 2>/dev/null || git log --pretty=format:"%s%n%b")
+          # Scan commit subjects and bodies for bump signals
+          BUMP="patch"  # default: any commit is at least a patch release
 
-          if echo "$COMMITS" | grep -qiE "BREAKING[- ]CHANGE"; then
+          COMMITS=$(git log --pretty=format:"%s%n%b" "$COMMIT_RANGE")
+
+          # Breaking change: footer "BREAKING CHANGE:" or type suffix "!"
+          if printf '%s\n' "$COMMITS" | grep -qiE "BREAKING[- ]CHANGE" || \
+             printf '%s\n' "$COMMITS" | grep -qE "^[a-z]+(\(.+\))?!:"; then
             BUMP="major"
-          elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?!?:"; then
+          elif printf '%s\n' "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
             BUMP="minor"
           fi
 
@@ -101,20 +137,10 @@ jobs:
 
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
 
-          echo "Bump type: ${BUMP}"
-          echo "New version: ${NEW_VERSION}"
+          echo "Bump type: ${BUMP}" >&2
+          echo "New version: ${NEW_VERSION}" >&2
           echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
-
-      # -----------------------------------------------------------------
-      # Create and push git tag
-      # -----------------------------------------------------------------
-      - name: Create git tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
 
       # -----------------------------------------------------------------
       # Set up Docker Buildx (required for multi-platform builds)
@@ -140,6 +166,9 @@ jobs:
       # Tags:
       #   - benedicteb/obsidian-git-backup:latest
       #   - benedicteb/obsidian-git-backup:vX.Y.Z
+      #
+      # The git tag is created AFTER the build succeeds to avoid orphaned
+      # tags (a tag with no corresponding Docker image).
       # -----------------------------------------------------------------
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -152,11 +181,26 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Embed version label in image metadata
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      # -----------------------------------------------------------------
+      # Create and push git tag (after build succeeds)
+      #
+      # Placed after the Docker build so that a failed build does not
+      # leave an orphaned version tag with no corresponding image.
+      # -----------------------------------------------------------------
+      - name: Create git tag
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push origin "$NEW_VERSION"
 
       # -----------------------------------------------------------------
       # Sync README to Docker Hub description
