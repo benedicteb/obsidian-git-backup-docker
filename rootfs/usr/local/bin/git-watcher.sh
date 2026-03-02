@@ -71,14 +71,23 @@ do_commit_and_push() {
     return 1
   fi
 
-  # Pull before push to handle any divergence (rebase keeps linear history)
-  if ! git -C "${VAULT}" pull --rebase origin "${BRANCH}" 2>&1; then
-    log_error "git pull --rebase failed. Aborting rebase and continuing."
-    git -C "${VAULT}" rebase --abort 2>/dev/null || true
-    # Don't return error — local commit is preserved, will retry next cycle
+  # Check if the remote branch exists yet. On a brand-new bare repo the
+  # remote has no branches at all — pulling would fail with
+  # "couldn't find remote ref <branch>".
+  if git -C "${VAULT}" ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+    # Remote branch exists — pull before push to handle any divergence
+    if ! git -C "${VAULT}" pull --rebase origin "${BRANCH}" 2>&1; then
+      log_error "git pull --rebase failed. Aborting rebase and continuing."
+      git -C "${VAULT}" rebase --abort 2>/dev/null || true
+      # Don't return error — local commit is preserved, will retry next cycle
+    fi
+  else
+    log "Remote branch '${BRANCH}' does not exist yet — skipping pull (first push)"
   fi
 
-  push_output="$(git -C "${VAULT}" push origin "${BRANCH}" 2>&1)" && {
+  # Use -u (--set-upstream) so the first push to an empty remote creates the
+  # branch. On subsequent pushes this is a harmless no-op.
+  push_output="$(git -C "${VAULT}" push -u origin "${BRANCH}" 2>&1)" && {
     log "Pushed to origin/${BRANCH}"
     push_failures=0
     return 0
