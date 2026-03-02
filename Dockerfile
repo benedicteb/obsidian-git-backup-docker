@@ -69,9 +69,18 @@ RUN rm -f /tmp/s6-overlay-*.tar.xz /tmp/s6-arch.env && \
 
 # ---------------------------------------------------------------------------
 # Install obsidian-headless
+#
+# better-sqlite3 (a dependency) requires native compilation.
+# Build deps are installed, used, then removed in one layer to keep
+# the final image small.
 # ---------------------------------------------------------------------------
-RUN npm install -g obsidian-headless && \
-    npm cache clean --force
+RUN apk add --no-cache --virtual .build-deps \
+      python3 \
+      make \
+      g++ && \
+    npm install -g obsidian-headless && \
+    npm cache clean --force && \
+    apk del .build-deps
 
 # ---------------------------------------------------------------------------
 # Create app user and runtime directories
@@ -79,7 +88,11 @@ RUN npm install -g obsidian-headless && \
 # Default UID/GID is 1000. Users override at runtime via PUID/PGID env vars.
 # The init-usermap oneshot remaps the UID/GID before services start.
 # ---------------------------------------------------------------------------
-RUN addgroup -g 1000 obsidian && \
+# The node:22-alpine base image includes a 'node' user (UID/GID 1000).
+# Rename it to 'obsidian' for clarity. The UID/GID will be remapped at
+# runtime by init-usermap to match PUID/PGID.
+RUN deluser node && \
+    addgroup -g 1000 obsidian && \
     adduser -u 1000 -G obsidian -s /bin/sh -D obsidian && \
     mkdir -p /vault /config/.ssh && \
     chown -R obsidian:obsidian /vault /config

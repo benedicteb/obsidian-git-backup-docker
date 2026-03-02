@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/command/with-contenv sh
 # Final commit on service shutdown — catch anything in the debounce window.
 # The main script also has a SIGTERM trap, but this is a safety net.
 # Run as the obsidian user to match file ownership.

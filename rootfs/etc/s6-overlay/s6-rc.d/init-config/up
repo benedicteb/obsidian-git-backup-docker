@@ -1,1 +1,1 @@
-/usr/local/bin/init-config.sh
+with-contenv /usr/local/bin/init-config.sh

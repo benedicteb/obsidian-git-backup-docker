@@ -1,1 +1,1 @@
-/usr/local/bin/init-usermap.sh
+with-contenv /usr/local/bin/init-usermap.sh
