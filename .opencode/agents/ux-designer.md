@@ -1,6 +1,6 @@
 ---
 description: UX designer focused on developer experience. Reviews configuration ergonomics, error messages, documentation, and ease of use.
-model: claude-sonnet-4-6
+model: anthropic/claude-sonnet-4-6
 mode: subagent
 tools:
   write: false

@@ -1,6 +1,6 @@
 ---
 description: Senior Linux systems engineer. Reviews shell scripts, filesystem operations, permissions, init systems, and container runtime concerns.
-model: claude-sonnet-4-6
+model: anthropic/claude-sonnet-4-6
 mode: subagent
 tools:
   write: false
