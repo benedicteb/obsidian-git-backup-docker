@@ -141,6 +141,12 @@ The container detects the existing key and uses it — no new key is generated.
 > permissions automatically (`600` on the key), so don't worry about
 > permission errors even if your host permissions differ.
 
+> **Advanced:** On first run, the container auto-generates `ssh_config` and
+> `known_hosts` in `/config/`. If you need custom SSH settings (e.g., a
+> non-standard port, proxy, or pre-seeded host keys), you can provide your
+> own `ssh_config` and/or `known_hosts` in the same directory — the
+> container will use them as-is and not overwrite them.
+
 ### 4. Verify
 
 ```sh
@@ -176,7 +182,7 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 | Path | Required | Description |
 |---|---|---|
-| `/config` | **Yes** | SSH keys (`id_ed25519`, `ssh_config`, `known_hosts`) and persistent configuration. Must survive restarts. Can be a named volume (key is auto-generated) or a bind mount (bring your own key — see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
+| `/config` | **Yes** | Persistent configuration and SSH keys. Must survive restarts. Named volume (default) or bind mount (see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
 ## User / Group Identifiers (PUID/PGID)
