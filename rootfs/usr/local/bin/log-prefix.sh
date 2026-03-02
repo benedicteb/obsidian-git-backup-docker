@@ -26,8 +26,9 @@ mkfifo "${FIFO}"
 # Start the prefixer in the background — reads from FIFO, writes to stdout.
 # Uses a while-read loop instead of sed because BusyBox sed does not support
 # -u (unbuffered). Shell's built-in read/echo is naturally line-buffered.
+# Timestamps use ISO 8601 format, matching log-functions.sh output.
 while IFS= read -r line; do
-    printf '%s %s\n' "${PREFIX}" "${line}"
+    printf '%s %s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${PREFIX}" "${line}"
 done < "${FIFO}" &
 READER_PID=$!
 
