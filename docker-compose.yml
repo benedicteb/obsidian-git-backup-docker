@@ -16,17 +16,11 @@ services:
     container_name: obsidian-git-backup
     restart: unless-stopped
 
+    # All configuration is loaded from the env file.
+    # PUID/PGID for bind mount permissions are set here too.
+    # See .env.example for all available variables.
     env_file:
       - .env
-
-    environment:
-      # Container user identity — prevents "permission denied" on bind mounts.
-      # Run `id -u` / `id -g` on your host and set these values:
-      #   macOS:  PUID=501, PGID=20
-      #   Linux:  PUID=1000, PGID=1000
-      # Not needed with named volumes (the default below).
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
 
     volumes:
       # REQUIRED: Persists SSH keys across container restarts.
