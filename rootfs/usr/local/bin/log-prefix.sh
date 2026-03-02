@@ -26,9 +26,19 @@ mkfifo "${FIFO}"
 # Start the prefixer in the background — reads from FIFO, writes to stdout.
 # Uses a while-read loop instead of sed because BusyBox sed does not support
 # -u (unbuffered). Shell's built-in read/echo is naturally line-buffered.
-# Timestamps use ISO 8601 format, matching log-functions.sh output.
+#
+# Timestamps use ISO 8601 UTC with Z suffix, matching log-functions.sh output.
+#
+# NOTE: Timestamps reflect when this reader loop processed each line,
+# not when the child process emitted it. Under normal load the delta is
+# negligible (<1ms), but timestamps should not be treated as high-precision
+# event times during a performance investigation.
+#
+# NOTE: Each line forks a `date` process (~1-3ms on Alpine/musl). This is
+# fine for ob sync's low-volume output but would bottleneck at ~300-1000
+# lines/second. Do not use this wrapper for high-throughput commands.
 while IFS= read -r line; do
-    printf '%s %s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${PREFIX}" "${line}"
+    printf '%s %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${PREFIX}" "${line}"
 done < "${FIFO}" &
 READER_PID=$!
 
