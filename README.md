@@ -157,6 +157,8 @@ You should see:
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `PUID` | No | `1000` | Container user UID. Set to your host UID for bind mounts. |
+| `PGID` | No | `1000` | Container group GID. Set to your host GID for bind mounts. |
 
 \* `OBSIDIAN_AUTH_TOKEN` is read directly by obsidian-headless. It does not use
 the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
@@ -168,24 +170,61 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 | `/config` | **Yes** | SSH keys and persistent configuration. Must survive restarts. Can be a named volume (key is auto-generated) or a bind mount (bring your own key — see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
+## User / Group Identifiers (PUID/PGID)
+
+When using **bind mounts** (mapping a host directory into the container), you
+must tell the container to run as your host user to avoid permission conflicts.
+This follows the [linuxserver.io](https://docs.linuxserver.io/general/understanding-puid-and-pgid/)
+convention.
+
+Find your UID and GID:
+
+```sh
+id -u   # → e.g. 501 on macOS, 1000 on Linux
+id -g   # → e.g. 20 on macOS, 1000 on Linux
+```
+
+Then set them in your environment or `docker-compose.yml`:
+
+```yaml
+environment:
+  - PUID=501
+  - PGID=20
+```
+
+Or with `docker run`:
+
+```sh
+docker run -e PUID=501 -e PGID=20 ...
+```
+
+> **Note:** PUID/PGID are **not needed** when using Docker named volumes
+> (the default in `docker-compose.yml`). Named volumes are managed by Docker
+> and don't have host permission issues. PUID/PGID are only needed when you
+> bind-mount host directories (e.g., `./local/config:/config`).
+
 ## Architecture
 
-The container runs three s6-rc services:
+The container runs four s6-rc services:
 
 ```
 base
-  └── init-config (oneshot)
-        ├── obsidian-sync (longrun)
-        └── git-watcher (longrun)
+  └── init-usermap (oneshot) — remaps UID/GID to match PUID/PGID
+        └── init-config (oneshot) — validates env, sets up SSH, clones git, configures ob
+              ├── obsidian-sync (longrun) — ob sync --continuous
+              └── git-watcher (longrun) — inotifywait + git commit/push
 ```
 
+- **init-usermap**: Remaps the container's `obsidian` user/group to match
+  `PUID`/`PGID`. Fixes ownership of `/config` and `/vault`. Runs once.
 - **init-config**: Validates environment, sets up SSH, clones git repo,
   configures obsidian-headless. Runs once at startup.
-- **obsidian-sync**: Runs `ob sync --continuous`. Auto-restarted by s6 if it
-  crashes.
-- **git-watcher**: Monitors `/vault` with `inotifywait`. Debounces, then
-  commits and pushes. Auto-restarted by s6 if it crashes. On graceful
-  shutdown, any pending changes in the debounce window are committed.
+- **obsidian-sync**: Runs `ob sync --continuous` as the `obsidian` user.
+  Auto-restarted by s6 if it crashes.
+- **git-watcher**: Monitors `/vault` with `inotifywait` as the `obsidian`
+  user. Debounces, then commits and pushes. Auto-restarted by s6 if it
+  crashes. On graceful shutdown, any pending changes in the debounce window
+  are committed.
 
 ## Multiple Vaults
 
@@ -214,8 +253,6 @@ services:
 - **SSH only** — HTTPS git remotes are not supported yet.
 - **No LLM commit messages** — Commits use simple timestamps. AI-generated
   messages are planned for a future release.
-- **Runs as root** — Services run as root inside the container. Privilege
-  separation is planned for a future release.
 - **Large syncs may produce partial commits** — The debounce timer helps but
   if an Obsidian sync takes longer than the debounce period, intermediate
   state may be committed. Increase `OBSIDIAN_GIT_DEBOUNCE_SECS` for large vaults.
