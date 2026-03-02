@@ -2,14 +2,10 @@
 # Obsidian headless continuous sync service
 # Drop privileges to the obsidian user (UID/GID set by init-usermap)
 #
-# Prefix every line with [obsidian-sync] to match the git-watcher log format.
-# This makes interleaved Docker logs easy to read.
-#
-# sed -u (unbuffered) ensures lines appear immediately.
-# When ob exits, the pipe breaks, sed gets EOF and exits, s6 restarts all.
-# On shutdown, s6 sends SIGTERM to the service's process group — both ob
-# and sed receive it.
-# Note: no 'exec' — it has no effect before a pipeline in POSIX sh.
-# The shell stays as s6's direct child and manages the pipeline process group.
-su-exec obsidian sh -c 'exec ob sync --continuous --path /vault 2>&1' \
-  | sed -u 's/^/[obsidian-sync] /'
+# Uses log-prefix.sh to add [obsidian-sync] to every output line, matching
+# the [git-watcher] convention. The wrapper avoids shell pipeline problems:
+#   - Signals: SIGTERM reaches ob directly (not lost to sed)
+#   - Exit code: ob's real exit code is returned to s6
+#   - No SIGPIPE: ob writes to a FIFO, not a pipe to sed
+exec su-exec obsidian /usr/local/bin/log-prefix.sh "[obsidian-sync]" \
+  ob sync --continuous --path /vault

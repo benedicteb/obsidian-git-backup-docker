@@ -17,7 +17,7 @@ Thumbs.db
 docker-compose.override.yml
 
 # Local bind mount data (contains secrets / user data)
-local/
+/local/
 
 # obsidian-headless source checkout (development reference only)
 obsidian-headless/
