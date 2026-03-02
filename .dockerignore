@@ -1,0 +1,11 @@
+# Keep the build context small — only Dockerfile and rootfs/ are needed.
+.git
+.idea
+.vscode
+.opencode
+.env*
+local/
+obsidian-headless/
+docs/
+*.md
+!README.md
