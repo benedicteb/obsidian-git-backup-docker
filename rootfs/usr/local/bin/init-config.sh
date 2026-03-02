@@ -306,19 +306,62 @@ if [ -n "${OBSIDIAN_GIT_E2EE_PASSWORD:-}" ]; then
   # --password-file or --password-stdin. This is acceptable in a container
   # with its own PID namespace (the default).
   set -- "$@" --password "${OBSIDIAN_GIT_E2EE_PASSWORD}"
+  log "E2EE password provided (${#OBSIDIAN_GIT_E2EE_PASSWORD} chars)"
+else
+  log "No E2EE password set (OBSIDIAN_GIT_E2EE_PASSWORD is empty)"
 fi
 
 # ob sync-setup is idempotent — safe to run even if already configured.
 # OBSIDIAN_AUTH_TOKEN is read from the environment by ob directly.
 # Run as the obsidian user so config files are owned correctly.
-if ! run_as_user env OBSIDIAN_AUTH_TOKEN="${OBSIDIAN_AUTH_TOKEN}" ob sync-setup "$@" 2>&1; then
-  log_error "obsidian-headless sync-setup failed"
-  log_error "Common causes:"
-  log_error "  - OBSIDIAN_AUTH_TOKEN is invalid or expired (re-run 'ob login')"
-  log_error "  - OBSIDIAN_GIT_VAULT_NAME '${OBSIDIAN_GIT_VAULT_NAME}' doesn't match a remote vault"
-  log_error "    (run 'ob sync-list-remote' to see available vaults)"
-  log_error "  - E2EE password is incorrect (if vault uses encryption)"
+#
+# Pipe an empty string to stdin so ob doesn't block waiting for an
+# interactive password prompt if the --password argument is missing or
+# incorrect. Without this, ob's fe() prompt reader hangs on non-TTY stdin.
+ob_output="$(run_as_user env OBSIDIAN_AUTH_TOKEN="${OBSIDIAN_AUTH_TOKEN}" \
+  ob sync-setup "$@" < /dev/null 2>&1)" \
+  || ob_exit=$?
+
+if [ "${ob_exit:-0}" -ne 0 ]; then
+  log_error "obsidian-headless sync-setup failed (exit code: ${ob_exit:-?})"
+  # Show the actual output from ob — it contains the real error
+  if [ -n "${ob_output:-}" ]; then
+    log_error "ob output: ${ob_output}"
+  fi
+  log_error ""
+  # Exit code 2 = password validation failure in ob
+  if [ "${ob_exit:-0}" -eq 2 ]; then
+    log_error "Password validation failed."
+    if [ -n "${OBSIDIAN_GIT_E2EE_PASSWORD:-}" ]; then
+      log_error "OBSIDIAN_GIT_E2EE_PASSWORD is set (${#OBSIDIAN_GIT_E2EE_PASSWORD} chars) but was rejected."
+      log_error "Check that the password matches exactly (including special characters)."
+      log_error ""
+      log_error "If your password contains special characters ($ \\ \" ' ! #), make sure"
+      log_error "it is correctly set in your .env file. In Docker Compose .env files:"
+      log_error "  - Values are taken literally (no shell expansion)"
+      log_error "  - Do NOT add quotes around the value"
+      log_error "  - Example: OBSIDIAN_GIT_E2EE_PASSWORD=my\$ecr3t!pa\$\$"
+    else
+      log_error "Your vault uses end-to-end encryption but OBSIDIAN_GIT_E2EE_PASSWORD is not set."
+      log_error "Add it to your .env file: OBSIDIAN_GIT_E2EE_PASSWORD=<your-password>"
+    fi
+  # Exit code 3 = vault not found
+  elif [ "${ob_exit:-0}" -eq 3 ]; then
+    log_error "Vault '${OBSIDIAN_GIT_VAULT_NAME}' not found."
+    log_error "Run 'ob sync-list-remote' to see available vault names and IDs."
+  else
+    log_error "Common causes:"
+    log_error "  - OBSIDIAN_AUTH_TOKEN is invalid or expired (re-run 'ob login')"
+    log_error "  - Network connectivity issues"
+  fi
   exit 1
+fi
+
+# Show the successful output from ob
+if [ -n "${ob_output:-}" ]; then
+  echo "${ob_output}" | while IFS= read -r line; do
+    log "ob: ${line}"
+  done
 fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
