@@ -29,7 +29,7 @@ services:
       # Option A — Named volume (container generates SSH key on first run):
       - obsidian-config:/config
       # Option B — Bind mount (bring your own SSH key):
-      #   Place your key at ./obsidian-config/.ssh/id_ed25519, then use:
+      #   Place your key at ./obsidian-config/id_ed25519, then use:
       # - ./obsidian-config:/config
 
       # OPTIONAL: Vault data. If not mounted, data is re-synced from
