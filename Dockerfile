@@ -21,15 +21,11 @@ ARG S6_OVERLAY_VERSION=3.2.2.0
 #
 # Docker uses:  amd64, arm64
 # s6 uses:      x86_64, aarch64
+#
+# The mapping is computed inline within the RUN that needs it (below).
+# No temp file or separate ARG required.
 # ---------------------------------------------------------------------------
 ARG TARGETARCH
-ARG S6_ARCH
-RUN case "${TARGETARCH}" in \
-      amd64)  S6_ARCH="x86_64"  ;; \
-      arm64)  S6_ARCH="aarch64" ;; \
-      *)      echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
-    esac && \
-    echo "S6_ARCH=${S6_ARCH}" > /tmp/s6-arch.env
 
 # ---------------------------------------------------------------------------
 # Install system dependencies
@@ -57,18 +53,25 @@ RUN apk add --no-cache \
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 
-# Use the arch we determined above
-RUN . /tmp/s6-arch.env && \
+# Map TARGETARCH to s6 naming and install the platform-specific binary
+RUN case "${TARGETARCH}" in \
+      amd64)  S6_ARCH="x86_64"  ;; \
+      arm64)  S6_ARCH="aarch64" ;; \
+      *)      echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
     wget -q "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
       -O /tmp/s6-overlay-arch.tar.xz && \
     tar -C / -Jxpf /tmp/s6-overlay-arch.tar.xz
 
 # Cleanup: remove tarballs and build-only dependency
-RUN rm -f /tmp/s6-overlay-*.tar.xz /tmp/s6-arch.env && \
+RUN rm -f /tmp/s6-overlay-*.tar.xz && \
     apk del xz
 
 # ---------------------------------------------------------------------------
 # Install obsidian-headless
+#
+# Pinned to a specific version for build reproducibility. The package is
+# pre-stable (0.x), so unpinned installs risk breaking changes.
 #
 # better-sqlite3 (a dependency) requires native compilation.
 # Build deps are installed, used, then removed in one layer to keep
@@ -78,7 +81,7 @@ RUN apk add --no-cache --virtual .build-deps \
       python3 \
       make \
       g++ && \
-    npm install -g obsidian-headless && \
+    npm install -g obsidian-headless@0.0.4 && \
     npm cache clean --force && \
     apk del .build-deps
 
