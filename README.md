@@ -75,8 +75,13 @@ docker compose up -d
 
 ### 3. Set Up SSH Key
 
-On first run, the container generates an SSH keypair. Check the logs to find
-the public key:
+The container needs an SSH key to push to your git remote. You have two
+options:
+
+#### Option A: Let the container generate a key (simplest)
+
+On first run, if no SSH key exists at `/config/.ssh/id_ed25519`, the container
+generates a new ed25519 keypair. Check the logs to find the public key:
 
 ```sh
 docker compose logs obsidian-backup
@@ -90,6 +95,42 @@ your git server:
 
 The container retries every 30 seconds — once you add the key, it will
 connect automatically. No restart needed.
+
+#### Option B: Bring your own SSH key (bind mount)
+
+If you already have an SSH key you want to use (e.g., a deploy key), you can
+bind-mount a local directory into `/config` that contains it.
+
+1. Create a config directory on the host:
+
+   ```sh
+   mkdir -p ./obsidian-config/.ssh
+   cp ~/.ssh/my_deploy_key ./obsidian-config/.ssh/id_ed25519
+   cp ~/.ssh/my_deploy_key.pub ./obsidian-config/.ssh/id_ed25519.pub  # optional
+   chmod 700 ./obsidian-config/.ssh
+   chmod 600 ./obsidian-config/.ssh/id_ed25519
+   ```
+
+2. Update your `docker-compose.yml` to use a bind mount instead of a named
+   volume:
+
+   ```yaml
+   volumes:
+     - ./obsidian-config:/config
+     - obsidian-vault:/vault
+   ```
+
+3. Start the container:
+
+   ```sh
+   docker compose up -d
+   ```
+
+The container detects the existing key and uses it — no new key is generated.
+
+> **Note:** The key must be at `/config/.ssh/id_ed25519`. The container sets
+> permissions automatically (`700` on the directory, `600` on the key), so
+> don't worry about permission errors even if your host permissions differ.
 
 ### 4. Verify
 
@@ -124,7 +165,7 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 | Path | Required | Description |
 |---|---|---|
-| `/config` | **Yes** | SSH keys and persistent configuration. Must survive restarts. |
+| `/config` | **Yes** | SSH keys and persistent configuration. Must survive restarts. Can be a named volume (key is auto-generated) or a bind mount (bring your own key — see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
 ## Architecture
