@@ -1,5 +1,6 @@
 ---
 description: Obsidian power user since v0.6. Reviews vault structure, sync behavior, plugin compatibility, and .obsidian directory handling.
+model: claude-sonnet-4-6
 mode: subagent
 tools:
   write: false

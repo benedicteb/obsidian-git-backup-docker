@@ -19,6 +19,10 @@ All architecture decisions are recorded in `docs/adr/`. Use `docs/adr/0000-templ
 
 Session summaries live in `docs/sessions/{number}.md`. Check existing files there to determine the next number.
 
+## IDE MCP
+
+This project uses the **PyCharm** MCP tools (prefixed `pycharm_*`), not WebStorm. Always prefer PyCharm MCP tools when interacting with the IDE.
+
 ## Standards
 
 - **Docker**: Follow linuxserver.io conventions — s6-overlay, clear layer separation, non-root runtime where possible, well-documented environment variables.
