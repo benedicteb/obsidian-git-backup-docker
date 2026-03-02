@@ -1,3 +1,4 @@
 #!/bin/sh
 # Obsidian headless continuous sync service
-exec ob sync --continuous --path /vault
+# Drop privileges to the obsidian user (UID/GID set by init-usermap)
+exec su-exec obsidian ob sync --continuous --path /vault

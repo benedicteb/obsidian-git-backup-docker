@@ -1,8 +1,11 @@
 #!/bin/sh
 # Final commit on service shutdown — catch anything in the debounce window.
 # The main script also has a SIGTERM trap, but this is a safety net.
-cd /vault 2>/dev/null || exit 0
-git add -A 2>/dev/null || exit 0
-git diff --cached --quiet 2>/dev/null && exit 0
-git commit -m "shutdown sync: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" 2>/dev/null || exit 0
-git push origin "${OBSIDIAN_GIT_BRANCH:-main}" 2>/dev/null || true
+# Run as the obsidian user to match file ownership.
+su-exec obsidian sh -c '
+  cd /vault 2>/dev/null || exit 0
+  git add -A 2>/dev/null || exit 0
+  git diff --cached --quiet 2>/dev/null && exit 0
+  git commit -m "shutdown sync: $(date -u "+%Y-%m-%d %H:%M:%S UTC")" 2>/dev/null || exit 0
+  git push origin "${OBSIDIAN_GIT_BRANCH:-main}" 2>/dev/null || true
+'

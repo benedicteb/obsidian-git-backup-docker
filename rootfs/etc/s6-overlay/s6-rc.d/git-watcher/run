@@ -1,3 +1,4 @@
 #!/bin/sh
 # Git filesystem watcher service
-exec /usr/local/bin/git-watcher.sh
+# Drop privileges to the obsidian user (UID/GID set by init-usermap)
+exec su-exec obsidian /usr/local/bin/git-watcher.sh
