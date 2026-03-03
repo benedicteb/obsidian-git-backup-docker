@@ -30,6 +30,16 @@ Run one container per vault. See the project README for full setup instructions.
   <Requires>An Obsidian Sync subscription and a git repository with SSH access. Before installing: on your desktop or laptop (not the Unraid server), install Node.js, then run 'npm install -g obsidian-headless' and 'ob login' to obtain your auth token. A web browser is required for the login step. After first start: check container logs for the generated SSH public key and add it to your git server (GitHub/GitLab) before the first push can succeed.</Requires>
   <Icon>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/img/obsidian-git-backup.png</Icon>
   <TemplateURL>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml</TemplateURL>
+  <Beta>true</Beta>
+  <Date>20260303</Date>
+  <Changes>
+### 2026-03-03
+- Initial Unraid CA template release
+- Continuous Obsidian Sync via obsidian-headless
+- Filesystem-event-driven git commits (no polling)
+- Automatic SSH key generation
+- E2E encrypted vault support
+  </Changes>
 
   <!-- =================================================================== -->
   <!-- Required variables                                                   -->
