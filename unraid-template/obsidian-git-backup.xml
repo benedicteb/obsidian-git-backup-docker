@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>obsidian-git-backup</Name>
+  <Repository>benedicteb/obsidian-git-backup:latest</Repository>
+  <Registry>https://hub.docker.com/r/benedicteb/obsidian-git-backup/</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/benedicteb/obsidian-git-backup-docker/issues</Support>
+  <Project>https://github.com/benedicteb/obsidian-git-backup-docker/</Project>
+  <ReadMe>https://github.com/benedicteb/obsidian-git-backup-docker/blob/main/README.md</ReadMe>
+  <Overview>Syncs an Obsidian vault via obsidian-headless (official Obsidian Sync client) and automatically backs it up to a git repository.&#xD;
+&#xD;
+Every time Obsidian Sync delivers changes, they are committed and pushed to your git remote — giving you a private, versioned backup of your vault with full history.&#xD;
+&#xD;
+Features:&#xD;
+- Continuous sync via obsidian-headless&#xD;
+- Filesystem-event-driven git commits (no polling)&#xD;
+- Configurable debounce period for large vaults&#xD;
+- Automatic SSH key generation on first run&#xD;
+- Supports E2E encrypted vaults&#xD;
+&#xD;
+Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
+&#xD;
+Run one container per vault. See the project README for full setup instructions.</Overview>
+  <Category>Backup: Productivity: Tools:</Category>
+  <Requires>An Obsidian Sync subscription and a git repository with SSH access. You must obtain an auth token by running 'ob login' with obsidian-headless installed on any machine.</Requires>
+  <Icon>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/img/obsidian-git-backup.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/obsidian-git-backup.xml</TemplateURL>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+
+  <!-- =================================================================== -->
+  <!-- Required variables                                                   -->
+  <!-- =================================================================== -->
+
+  <Config
+    Name="Obsidian Auth Token"
+    Target="OBSIDIAN_AUTH_TOKEN"
+    Default=""
+    Mode=""
+    Description="Your Obsidian account auth token. Install obsidian-headless (npm install -g obsidian-headless), run 'ob login', then copy the contents of the auth_token file. WARNING: Anyone with this token can access all your synced vaults."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="true"/>
+
+  <Config
+    Name="Vault Name"
+    Target="OBSIDIAN_GIT_VAULT_NAME"
+    Default=""
+    Mode=""
+    Description="Name or ID of the remote vault to sync. Run 'ob sync-list-remote' to see available vaults."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false"/>
+
+  <Config
+    Name="Git Remote URL"
+    Target="OBSIDIAN_GIT_REMOTE_URL"
+    Default=""
+    Mode=""
+    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git"
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false"/>
+
+  <!-- =================================================================== -->
+  <!-- Volumes                                                              -->
+  <!-- =================================================================== -->
+
+  <Config
+    Name="Config Storage"
+    Target="/config"
+    Default="/mnt/user/appdata/obsidian-git-backup/config"
+    Mode="rw"
+    Description="Persistent config directory. Stores SSH keys and obsidian-headless state. Must survive container restarts or you'll lose your SSH key."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false"/>
+
+  <Config
+    Name="Vault Storage"
+    Target="/vault"
+    Default="/mnt/user/appdata/obsidian-git-backup/vault"
+    Mode="rw"
+    Description="Vault data and git working tree. Can be re-synced/re-cloned if lost, but persisting avoids re-downloading."
+    Type="Path"
+    Display="always"
+    Required="false"
+    Mask="false"/>
+
+  <!-- =================================================================== -->
+  <!-- Optional variables                                                   -->
+  <!-- =================================================================== -->
+
+  <Config
+    Name="Git Author Name"
+    Target="OBSIDIAN_GIT_USER_NAME"
+    Default="obsidian-git-backup"
+    Mode=""
+    Description="Name used for git commits."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Git Author Email"
+    Target="OBSIDIAN_GIT_USER_EMAIL"
+    Default="obsidian-git-backup@local"
+    Mode=""
+    Description="Email used for git commits."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Git Branch"
+    Target="OBSIDIAN_GIT_BRANCH"
+    Default="main"
+    Mode=""
+    Description="Git branch to commit and push to."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Debounce Seconds"
+    Target="OBSIDIAN_GIT_DEBOUNCE_SECS"
+    Default="30"
+    Mode=""
+    Description="Seconds of filesystem quiet before committing. After detecting changes, the watcher waits this long for more changes before committing. For large vaults, increase to 60+."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="E2EE Password"
+    Target="OBSIDIAN_GIT_E2EE_PASSWORD"
+    Default=""
+    Mode=""
+    Description="End-to-end encryption password for the vault. Only needed if the vault uses E2E encryption."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="PUID"
+    Target="PUID"
+    Default="99"
+    Mode=""
+    Description="User ID for file permissions. Unraid default is 99 (nobody)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="PGID"
+    Target="PGID"
+    Default="100"
+    Mode=""
+    Description="Group ID for file permissions. Unraid default is 100 (users)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+</Container>
