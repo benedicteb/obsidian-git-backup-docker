@@ -206,6 +206,7 @@ jobs:
           set -euo pipefail
 
           CHANGELOG_FILE=$(mktemp)
+          trap 'rm -f "${CHANGELOG_FILE}.breaking" "${CHANGELOG_FILE}.feat" "${CHANGELOG_FILE}.fix" "${CHANGELOG_FILE}.other"' EXIT
 
           # Categorise commits by conventional commit type into temp files
           git log --pretty=tformat:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
@@ -268,10 +269,6 @@ jobs:
 
             printf '**Docker image:** `docker pull %s:%s`\n' "$IMAGE" "$NEW_VERSION"
           } > "$CHANGELOG_FILE"
-
-          # Clean up temp category files
-          rm -f "${CHANGELOG_FILE}.breaking" "${CHANGELOG_FILE}.feat" \
-                "${CHANGELOG_FILE}.fix" "${CHANGELOG_FILE}.other"
 
           # Output the changelog file path for the release step
           echo "changelog_file=${CHANGELOG_FILE}" >> "$GITHUB_OUTPUT"
