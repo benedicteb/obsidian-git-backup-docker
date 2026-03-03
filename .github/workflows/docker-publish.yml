@@ -212,14 +212,18 @@ jobs:
             [ -z "$subject" ] && continue
 
             # Check for breaking changes (trailing ! before colon)
+            # Strip the conventional commit prefix (e.g., "feat: ", "fix(scope)!: ")
+            # to avoid redundancy with the section header
+            stripped=$(printf '%s' "$subject" | sed -E 's/^[a-z]+(\([^)]+\))?!?:[[:space:]]*//')
+
             if printf '%s' "$subject" | grep -qE '^[a-z]+(\(.+\))?!:'; then
-              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.breaking"
+              printf '%s\n' "$stripped" >> "${CHANGELOG_FILE}.breaking"
             elif printf '%s' "$subject" | grep -qE '^feat(\(.+\))?:'; then
-              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.feat"
+              printf '%s\n' "$stripped" >> "${CHANGELOG_FILE}.feat"
             elif printf '%s' "$subject" | grep -qE '^fix(\(.+\))?:'; then
-              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.fix"
+              printf '%s\n' "$stripped" >> "${CHANGELOG_FILE}.fix"
             else
-              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.other"
+              printf '%s\n' "$stripped" >> "${CHANGELOG_FILE}.other"
             fi
           done
 
