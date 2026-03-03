@@ -317,7 +317,7 @@ The template provides a form with all required and optional settings:
 - **Vault Name** — Name of the remote vault to sync (case-sensitive).
 - **Git Remote URL** — SSH URL of your git repo.
 
-The **E2EE Password** field is visible on the main form (below Vault Name)
+The **E2EE Password** field is visible on the main form (after Git Remote URL)
 for users with encrypted vaults. Other optional settings (debounce period,
 branch name, git author) are under **Advanced View**.
 
