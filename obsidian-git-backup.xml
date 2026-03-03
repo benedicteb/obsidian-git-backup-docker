@@ -20,7 +20,7 @@ Features:&#xD;
 - Automatic SSH key generation on first run&#xD;
 - Works with E2E encrypted vaults (decrypted locally before git commit)&#xD;
 &#xD;
-This container has no web UI and exposes no ports. Monitor it via container logs.&#xD;
+This container has no web UI and exposes no ports. Monitor it via container logs. Requires outbound internet access (TCP 443 for Obsidian Sync, TCP 22 for SSH git push).&#xD;
 &#xD;
 Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
 If your vault uses E2E encryption, expand Advanced View to enter your E2EE password.&#xD;
