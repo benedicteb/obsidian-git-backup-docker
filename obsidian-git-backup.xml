@@ -109,7 +109,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="/vault"
     Default="/mnt/user/appdata/obsidian-git-backup/vault"
     Mode="rw"
-    Description="Vault data and git working tree. Strongly recommended — without this, the container re-clones the entire vault on every restart (slow, degrades git history). On Unraid, consider placing on your cache drive for better I/O with frequent small file changes."
+    Description="Vault data and git working tree. Strongly recommended — without this, the container re-clones the entire vault on every restart (slow, degrades git history). For better I/O, ensure your 'appdata' share uses 'cache-prefer' or 'cache-only' mode (set in Unraid's Shares tab). The default path will then automatically land on the cache drive."
     Type="Path"
     Display="always"
     Required="true"
