@@ -202,6 +202,7 @@ jobs:
           PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
           NEW_VERSION: ${{ steps.version.outputs.version }}
           IMAGE: ${{ env.IMAGE_NAME }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
@@ -267,7 +268,22 @@ jobs:
               printf '\n'
             fi
 
-            printf '**Docker image:** `docker pull %s:%s`\n' "$IMAGE" "$NEW_VERSION"
+            # Guard: if no commits were categorised, say so explicitly
+            if ! [ -s "${CHANGELOG_FILE}.breaking" ] && \
+               ! [ -s "${CHANGELOG_FILE}.feat" ] && \
+               ! [ -s "${CHANGELOG_FILE}.fix" ] && \
+               ! [ -s "${CHANGELOG_FILE}.other" ]; then
+              printf 'No categorised commits found.\n\n'
+            fi
+
+            # Link to full diff on GitHub
+            if [ "$PREVIOUS_TAG" != "v0.0.0" ]; then
+              printf '[Full diff: %s...%s](https://github.com/%s/compare/%s...%s)\n\n' \
+                "$PREVIOUS_TAG" "$NEW_VERSION" "$REPO" "$PREVIOUS_TAG" "$NEW_VERSION"
+            fi
+
+            printf '**Docker image:** `docker pull %s:%s`\n\n' "$IMAGE" "$NEW_VERSION"
+            printf '> To update a running container: `docker compose pull && docker compose up -d`\n'
           } > "$CHANGELOG_FILE"
 
           # Output the changelog file path for the release step
