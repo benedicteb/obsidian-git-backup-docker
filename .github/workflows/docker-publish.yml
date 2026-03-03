@@ -209,7 +209,7 @@ jobs:
 
           # Categorise commits by conventional commit type into temp files
           git log --pretty=tformat:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
-            [ -z "$subject" ] && continue
+            if [ -z "$subject" ]; then continue; fi
 
             # Check for breaking changes (trailing ! before colon)
             # Strip the conventional commit prefix (e.g., "feat: ", "fix(scope)!: ")
@@ -255,13 +255,13 @@ jobs:
             fi
 
             if [ -s "${CHANGELOG_FILE}.fix" ]; then
-              printf '### Fixes\n\n'
+              printf '### Bug Fixes\n\n'
               sed 's/^/- /' "${CHANGELOG_FILE}.fix"
               printf '\n'
             fi
 
             if [ -s "${CHANGELOG_FILE}.other" ]; then
-              printf '### Other\n\n'
+              printf '### Maintenance\n\n'
               sed 's/^/- /' "${CHANGELOG_FILE}.other"
               printf '\n'
             fi
