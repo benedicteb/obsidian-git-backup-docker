@@ -453,9 +453,9 @@ To raise it (64× the default):
 # Temporary (until next reboot):
 echo 524288 > /proc/sys/fs/inotify/max_user_watches
 
-# Persistent — add to Settings → Boot → Go file (/boot/config/go):
-# Run this once; repeat runs append duplicate lines.
-echo 'echo 524288 > /proc/sys/fs/inotify/max_user_watches' >> /boot/config/go
+# Persistent — add to /boot/config/go (safe to run multiple times):
+grep -q 'max_user_watches' /boot/config/go || \
+  echo 'echo 524288 > /proc/sys/fs/inotify/max_user_watches' >> /boot/config/go
 ```
 
 ## Publishing
