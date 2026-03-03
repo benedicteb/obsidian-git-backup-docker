@@ -23,7 +23,7 @@ Features:&#xD;
 This container has no web UI and exposes no ports. Monitor it via container logs. Requires outbound internet access (TCP 443 for Obsidian Sync, TCP 22 for SSH git push).&#xD;
 &#xD;
 Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
-If your vault uses E2E encryption, expand Advanced View to enter your E2EE password.&#xD;
+If your vault uses E2E encryption, enter your E2EE password below the Vault Name field.&#xD;
 &#xD;
 Run one container per vault. See the project README for full setup instructions.</Overview>
   <Category>Backup: Productivity: Tools:</Category>
@@ -56,6 +56,17 @@ Run one container per vault. See the project README for full setup instructions.
     Display="always"
     Required="true"
     Mask="false"/>
+
+  <Config
+    Name="E2EE Password"
+    Target="OBSIDIAN_GIT_E2EE_PASSWORD"
+    Default=""
+    Mode=""
+    Description="End-to-end encryption password. Only needed if the vault uses E2E encryption. Note: obsidian-headless decrypts vault contents locally — your git repository will contain plaintext files. E2EE protects the Obsidian Sync transport only."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="true"/>
 
   <Config
     Name="Git Remote URL"
@@ -141,17 +152,6 @@ Run one container per vault. See the project README for full setup instructions.
     Display="advanced"
     Required="false"
     Mask="false"/>
-
-  <Config
-    Name="E2EE Password"
-    Target="OBSIDIAN_GIT_E2EE_PASSWORD"
-    Default=""
-    Mode=""
-    Description="End-to-end encryption password. Only needed if the vault uses E2E encryption. Note: obsidian-headless decrypts vault contents locally — your git repository will contain plaintext files. E2EE protects the Obsidian Sync transport only."
-    Type="Variable"
-    Display="always"
-    Required="false"
-    Mask="true"/>
 
   <Config
     Name="PUID"
