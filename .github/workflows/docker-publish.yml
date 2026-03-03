@@ -208,7 +208,7 @@ jobs:
           CHANGELOG_FILE=$(mktemp)
 
           # Categorise commits by conventional commit type into temp files
-          git log --pretty=format:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
+          git log --pretty=tformat:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
             [ -z "$subject" ] && continue
 
             # Check for breaking changes (trailing ! before colon)
