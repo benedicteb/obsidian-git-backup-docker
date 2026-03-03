@@ -95,7 +95,9 @@ Implementation details:
 - Every push to main is automatically released — no manual release process.
 - Version tags are semantically meaningful (feat = minor, fix = patch).
 - ARM users (Apple Silicon, Raspberry Pi) get native images.
-- Docker Hub description stays in sync with the README automatically.
+- ~~Docker Hub description stays in sync with the README automatically.~~
+  Superseded by [ADR-0008](0008-manual-docker-hub-readme.md) — README
+  is now updated manually.
 
 **Harder:**
 
@@ -108,9 +110,10 @@ Implementation details:
 - The conventional commit parser is hand-rolled shell (not a dedicated
   tool like `semantic-release`). Simpler but less feature-complete — no
   changelog generation, no release notes on GitHub.
-- `peter-evans/dockerhub-description` may require a Docker Hub PAT with
+- ~~`peter-evans/dockerhub-description` may require a Docker Hub PAT with
   broader permissions than a scoped registry token. If the README sync
-  fails silently, it does not block the image publish.
+  fails silently, it does not block the image publish.~~
+  Removed — see [ADR-0008](0008-manual-docker-hub-readme.md).
 - Third-party GitHub Actions are pinned by major version tag, not SHA.
   A supply chain compromise could affect the publish pipeline. Pinning
   to SHAs is a future hardening step.
