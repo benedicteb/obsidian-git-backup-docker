@@ -17,16 +17,18 @@ Features:&#xD;
 - Filesystem-event-driven git commits (no polling)&#xD;
 - Configurable debounce period for large vaults&#xD;
 - Automatic SSH key generation on first run&#xD;
-- Supports E2E encrypted vaults&#xD;
+- Works with E2E encrypted vaults (decrypted locally before git commit)&#xD;
+&#xD;
+This container has no web UI and exposes no ports. Monitor it via container logs.&#xD;
 &#xD;
 Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
+If your vault uses E2E encryption, expand Advanced View to enter your E2EE password.&#xD;
 &#xD;
 Run one container per vault. See the project README for full setup instructions.</Overview>
   <Category>Backup: Productivity: Tools:</Category>
-  <Requires>An Obsidian Sync subscription and a git repository with SSH access. You must obtain an auth token by running 'ob login' with obsidian-headless installed on any machine.</Requires>
+  <Requires>An Obsidian Sync subscription and a git repository with SSH access. Before installing: on your desktop or laptop (not the Unraid server), install Node.js, then run 'npm install -g obsidian-headless' and 'ob login' to obtain your auth token. A web browser is required for the login step.</Requires>
   <Icon>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/img/obsidian-git-backup.png</Icon>
   <TemplateURL>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/obsidian-git-backup.xml</TemplateURL>
-  <ExtraParams>--restart unless-stopped</ExtraParams>
 
   <!-- =================================================================== -->
   <!-- Required variables                                                   -->
@@ -37,7 +39,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_AUTH_TOKEN"
     Default=""
     Mode=""
-    Description="Your Obsidian account auth token. Install obsidian-headless (npm install -g obsidian-headless), run 'ob login', then copy the contents of the auth_token file. WARNING: Anyone with this token can access all your synced vaults."
+    Description="Your Obsidian account auth token. Treat this like a password — anyone with it can read ALL your synced vaults (not just this one). To get it: on your desktop/laptop, install obsidian-headless (npm install -g obsidian-headless), run 'ob login' (opens a browser), then copy the token from ~/.obsidian-headless/auth_token (macOS) or ~/.config/obsidian-headless/auth_token (Linux). See README for details."
     Type="Variable"
     Display="always"
     Required="true"
@@ -48,7 +50,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_GIT_VAULT_NAME"
     Default=""
     Mode=""
-    Description="Name or ID of the remote vault to sync. Run 'ob sync-list-remote' to see available vaults."
+    Description="The name of your Obsidian vault exactly as shown in the Obsidian app (e.g. 'My Notes'). Must match exactly — case-sensitive, including spaces. Run 'ob sync-list-remote' on your desktop to list available vaults."
     Type="Variable"
     Display="always"
     Required="true"
@@ -59,7 +61,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_GIT_REMOTE_URL"
     Default=""
     Mode=""
-    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git"
+    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git. After first start, check container logs for the generated SSH public key and add it to your git server."
     Type="Variable"
     Display="always"
     Required="true"
@@ -74,7 +76,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="/config"
     Default="/mnt/user/appdata/obsidian-git-backup/config"
     Mode="rw"
-    Description="Persistent config directory. Stores SSH keys and obsidian-headless state. Must survive container restarts or you'll lose your SSH key."
+    Description="Stores SSH keys and obsidian-headless device state. Must survive restarts. If lost, you'll need to re-add the SSH public key to your git server and restart to re-register with Obsidian Sync."
     Type="Path"
     Display="always"
     Required="true"
@@ -85,10 +87,10 @@ Run one container per vault. See the project README for full setup instructions.
     Target="/vault"
     Default="/mnt/user/appdata/obsidian-git-backup/vault"
     Mode="rw"
-    Description="Vault data and git working tree. Can be re-synced/re-cloned if lost, but persisting avoids re-downloading."
+    Description="Vault data and git working tree. Strongly recommended — without this, the container re-clones the entire vault on every restart (slow, degrades git history). On Unraid, consider placing on your cache drive for better I/O with frequent small file changes."
     Type="Path"
     Display="always"
-    Required="false"
+    Required="true"
     Mask="false"/>
 
   <!-- =================================================================== -->
@@ -122,7 +124,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_GIT_BRANCH"
     Default="main"
     Mode=""
-    Description="Git branch to commit and push to."
+    Description="Git branch to commit and push to. The branch must already exist on the remote."
     Type="Variable"
     Display="advanced"
     Required="false"
@@ -133,7 +135,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_GIT_DEBOUNCE_SECS"
     Default="30"
     Mode=""
-    Description="Seconds of filesystem quiet before committing. After detecting changes, the watcher waits this long for more changes before committing. For large vaults, increase to 60+."
+    Description="Seconds of filesystem quiet before committing. After detecting changes, the watcher waits this long for more changes before committing. For large vaults (10,000+ notes) or slow connections, consider 60-120."
     Type="Variable"
     Display="advanced"
     Required="false"
@@ -144,9 +146,9 @@ Run one container per vault. See the project README for full setup instructions.
     Target="OBSIDIAN_GIT_E2EE_PASSWORD"
     Default=""
     Mode=""
-    Description="End-to-end encryption password for the vault. Only needed if the vault uses E2E encryption."
+    Description="End-to-end encryption password. Only needed if the vault uses E2E encryption. Note: obsidian-headless decrypts vault contents locally — your git repository will contain plaintext files. E2EE protects the Obsidian Sync transport only."
     Type="Variable"
-    Display="advanced"
+    Display="always"
     Required="false"
     Mask="true"/>
 
@@ -155,7 +157,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="PUID"
     Default="99"
     Mode=""
-    Description="User ID for file permissions. Unraid default is 99 (nobody)."
+    Description="User ID for file permissions. Defaults to 99 (Unraid's 'nobody' user), which is correct for most Unraid setups. Change only if your appdata files need different ownership."
     Type="Variable"
     Display="advanced"
     Required="false"
@@ -166,7 +168,7 @@ Run one container per vault. See the project README for full setup instructions.
     Target="PGID"
     Default="100"
     Mode=""
-    Description="Group ID for file permissions. Unraid default is 100 (users)."
+    Description="Group ID for file permissions. Defaults to 100 (Unraid's 'users' group). Change only if you have a specific group ownership requirement."
     Type="Variable"
     Display="advanced"
     Required="false"

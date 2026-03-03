@@ -298,14 +298,15 @@ This image is compatible with Unraid's Community Applications (CA) plugin.
 
 ### Add the Template Repository
 
-1. In the Unraid web UI, go to **Docker** tab.
-2. At the bottom, click **Template Repositories**.
-3. Add this URL:
+1. In the Unraid web UI, go to the **Apps** tab (requires the
+   [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
+   plugin).
+2. Click the **Settings** icon (gear) to open CA settings.
+3. Under **Template Repositories**, add this URL:
    ```
    https://github.com/benedicteb/obsidian-git-backup-docker
    ```
-4. Click **Save**, then go to the **Apps** tab.
-5. Search for **obsidian-git-backup** and click **Install**.
+4. Click **Save**, then search for **obsidian-git-backup** and click **Install**.
 
 ### Configure in Unraid
 
@@ -313,14 +314,30 @@ The template provides a form with all required and optional settings:
 
 - **Obsidian Auth Token** — Your auth token (see [Quick Start](#1-configure)
   above for how to obtain it).
-- **Vault Name** — Name of the remote vault to sync.
+- **Vault Name** — Name of the remote vault to sync (case-sensitive).
 - **Git Remote URL** — SSH URL of your git repo.
+
+Optional settings (debounce period, branch name, E2EE password) are under
+**Advanced View** at the bottom of the install form.
 
 The default paths use `/mnt/user/appdata/obsidian-git-backup/` for persistent
 storage, which is the standard Unraid convention.
 
 > **Note:** PUID/PGID default to `99`/`100` (Unraid's `nobody`/`users`)
-> in the template, which is the correct setting for Unraid.
+> in the template, which is the correct setting for Unraid. The Docker image
+> defaults to `1000`/`1000` for non-Unraid systems.
+
+### After Installing
+
+Check the container logs (Docker tab → click the container icon → **Log**)
+for the `NEW SSH KEY GENERATED` banner. Copy the public key and add it to
+your git server:
+
+- **GitHub**: Settings → SSH and GPG keys → New SSH key
+- **GitLab**: Preferences → SSH Keys → Add new key
+
+The container retries every 30 seconds — once you add the key, it will
+connect automatically. No restart needed.
 
 For multiple vaults, install the template multiple times with different names,
 vault settings, and appdata paths.
