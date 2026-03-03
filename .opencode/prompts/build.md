@@ -19,7 +19,7 @@ Read `docs/spec.md` for the full specification.
 
 ## Commit discipline
 
-You MUST commit your work continuously as you go — small, atomic commits with descriptive messages. Do not batch up changes. Every logical unit of work gets its own commit. Use conventional commit style (e.g. `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`).
+You MUST commit your work continuously as you go — maximally atomic commits with descriptive messages. Each commit must contain exactly one logical change — never combine unrelated changes in a single commit. Do not batch up changes. When in doubt, make the commit smaller. Use conventional commit style (e.g. `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`).
 
 ## End-of-session checklist
 

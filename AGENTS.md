@@ -30,13 +30,13 @@ This project uses the **PyCharm** MCP tools (prefixed `pycharm_*`), not WebStorm
 - **Docker**: Follow linuxserver.io conventions — s6-overlay, clear layer separation, non-root runtime where possible, well-documented environment variables.
 - **Shell**: POSIX sh unless bash is explicitly required. Use `set -euo pipefail`. Handle errors. Clean up with traps.
 - **Naming**: Environment variables use `OBSIDIAN_GIT_` prefix. Consistent and intuitive.
-- **Commits**: Small, atomic, conventional-commit style (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Commit as you work, not at the end.
+- **Commits**: Maximally atomic, conventional-commit style (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Each commit must contain exactly one logical change — never combine unrelated changes in a single commit. Commit continuously as you work, not at the end. When in doubt, make the commit smaller.
 
 ## Agent workflow
 
 The primary build agent must:
 
-1. Commit work continuously in small atomic increments while working.
+1. Commit work continuously in small atomic increments while working. Each commit must contain exactly one logical change — never batch unrelated changes together.
 2. Before ending a session, request reviews from all three subagents (`@linux-expert`, `@ux-designer`, `@obsidian-expert`) and address their feedback.
 3. Record any architecture decisions in `docs/adr/`.
 4. Write a session summary in `docs/sessions/`.
