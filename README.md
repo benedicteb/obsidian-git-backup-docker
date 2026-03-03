@@ -27,7 +27,7 @@ full history.
 - [Multiple Vaults](#multiple-vaults)
 - [Unraid Installation](#unraid-installation)
   - [Before You Start](#before-you-start)
-  - [Add the Template Repository](#add-the-template-repository)
+  - [Add the Template](#add-the-template)
   - [Configure the Container](#configure-the-container)
   - [After Installing](#after-installing)
   - [Multiple Vaults on Unraid](#multiple-vaults-on-unraid)
@@ -411,8 +411,8 @@ across array start/stop cycles.
 
 ### After Installing
 
-1. Go to the **Docker** tab, click the container's icon (the coloured
-   square), and select **Log**.
+1. Go to the **Docker** tab, click the container's **name or icon** to
+   open the context menu, and select **Logs**.
 2. Look for the `NEW SSH KEY GENERATED` banner.
 3. Copy the public key and add it to your git server:
    - **GitHub**: Settings → SSH and GPG keys → New SSH key
