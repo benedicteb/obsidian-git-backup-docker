@@ -333,7 +333,7 @@ if you encounter problems.
 Before installing on Unraid, you need to obtain your Obsidian auth token on a
 **desktop or laptop** (not on the Unraid server — a web browser is required):
 
-1. Install Node.js
+1. Install [Node.js](https://nodejs.org) (LTS version recommended)
 2. Run `npm install -g obsidian-headless`
 3. Run `ob login` — this opens a browser for authentication
 4. Copy the token from the `auth_token` file:
@@ -343,20 +343,42 @@ Before installing on Unraid, you need to obtain your Obsidian auth token on a
 
 You also need a git repository with SSH access (e.g., a private GitHub repo).
 
-### Add the Template Repository
+### Add the Template
 
-This template is not yet in the official CA index. To install it, add the
-template XML as a **CA private repository** on your Unraid flash drive:
+> **Prerequisite:** The
+> [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
+> plugin must already be installed.
 
-1. Open an Unraid terminal (SSH or WebGUI console) and run:
+This template is not yet in the official CA search index. To install it,
+download the template XML to your Unraid flash drive as a CA private
+repository:
+
+1. **Open a terminal:** In the Unraid WebGUI, click the **terminal icon**
+   in the top-right navigation bar (or connect via SSH).
+
+2. **Run these two commands** (paste them one at a time):
+
    ```sh
    mkdir -p /boot/config/plugins/community.applications/private/obsidian-git-backup
-   wget -O /boot/config/plugins/community.applications/private/obsidian-git-backup/obsidian-git-backup.xml \
+   ```
+
+   ```sh
+   curl -fsSL -o /boot/config/plugins/community.applications/private/obsidian-git-backup/obsidian-git-backup.xml \
      https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml
    ```
-2. Go to the **Apps** tab — the template now appears under a **Private**
-   category (you may need to refresh the page).
-3. Search for **obsidian-git-backup** and click **Install**.
+
+   You should see no output on success. If you see an error, check your
+   internet connection and try again.
+
+3. Go to the **Apps** tab and click the **refresh** icon in the top-right
+   of the Apps page to force CA to re-scan. A browser refresh alone is not
+   sufficient.
+
+4. Search for **obsidian-git-backup** — it appears under the **Private**
+   category. Click **Install**.
+
+> To update the template later (e.g., after a new release adds fields),
+> re-run the `curl` command above, then refresh the Apps tab.
 
 ### Configure the Container
 
