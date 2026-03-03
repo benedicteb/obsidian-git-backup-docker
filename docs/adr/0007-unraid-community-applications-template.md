@@ -42,14 +42,15 @@ with no benefit for a single-container project.
 ## Decision
 
 Use a **self-hosted template** (option 2) stored at
-`unraid-template/obsidian-git-backup.xml` in this repository.
+`obsidian-git-backup.xml` in the repository root.
 
 Implementation details:
 
-- **Directory structure**: `unraid-template/` at the project root
-  contains the XML template and an `img/` subdirectory for the icon.
-  This follows the convention expected by Unraid CA when adding a
-  GitHub repo as a template source.
+- **Directory structure**: The XML template lives at the repository
+  root because CA's template scraper only scans the root directory
+  of a registered GitHub repo — it does not recurse into
+  subdirectories. The icon files remain in `unraid-template/img/`
+  since CA fetches icons via direct URL, not directory scanning.
 
 - **PUID/PGID defaults**: Set to `99`/`100` (Unraid's `nobody`/`users`
   convention) instead of the Dockerfile's `1000`/`1000`. This matches
