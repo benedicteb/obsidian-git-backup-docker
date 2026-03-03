@@ -292,6 +292,39 @@ services:
       - vault-work:/vault
 ```
 
+## Unraid Installation
+
+This image is compatible with Unraid's Community Applications (CA) plugin.
+
+### Add the Template Repository
+
+1. In the Unraid web UI, go to **Docker** tab.
+2. At the bottom, click **Template Repositories**.
+3. Add this URL:
+   ```
+   https://github.com/benedicteb/obsidian-git-backup-docker
+   ```
+4. Click **Save**, then go to the **Apps** tab.
+5. Search for **obsidian-git-backup** and click **Install**.
+
+### Configure in Unraid
+
+The template provides a form with all required and optional settings:
+
+- **Obsidian Auth Token** — Your auth token (see [Quick Start](#1-configure)
+  above for how to obtain it).
+- **Vault Name** — Name of the remote vault to sync.
+- **Git Remote URL** — SSH URL of your git repo.
+
+The default paths use `/mnt/user/appdata/obsidian-git-backup/` for persistent
+storage, which is the standard Unraid convention.
+
+> **Note:** PUID/PGID default to `99`/`100` (Unraid's `nobody`/`users`)
+> in the template, which is the correct setting for Unraid.
+
+For multiple vaults, install the template multiple times with different names,
+vault settings, and appdata paths.
+
 ## Publishing
 
 Pushes to `main` automatically build and publish the Docker image to
