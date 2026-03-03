@@ -5,6 +5,7 @@
   <Registry>https://hub.docker.com/r/benedicteb/obsidian-git-backup/</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
+  <ExtraParams>--sysctl fs.inotify.max_user_watches=524288</ExtraParams>
   <Support>https://github.com/benedicteb/obsidian-git-backup-docker/issues</Support>
   <Project>https://github.com/benedicteb/obsidian-git-backup-docker/</Project>
   <ReadMe>https://github.com/benedicteb/obsidian-git-backup-docker/blob/main/README.md</ReadMe>
