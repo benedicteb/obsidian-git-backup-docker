@@ -65,8 +65,10 @@ Implementation details:
   `feat:` → minor bump, everything else → patch bump. First release
   starts at `v0.0.1` (from implicit `v0.0.0`).
 
-- **Tag ordering**: Tags are created AFTER the Docker build succeeds to
-  avoid orphaned tags (a git tag with no corresponding image).
+- **Tag ordering**: ~~Tags are created AFTER the Docker build succeeds to
+  avoid orphaned tags (a git tag with no corresponding image).~~
+  Superseded — tags are now created as part of a GitHub Release. See
+  [ADR-0010](0010-github-releases-with-changelog.md).
 
 - **Concurrency**: `cancel-in-progress: true` — newer pushes cancel
   in-progress builds. This prevents race conditions where two runs
@@ -108,8 +110,9 @@ Implementation details:
   Version numbers may increment faster than expected. Acceptable for a
   pre-stable project.
 - The conventional commit parser is hand-rolled shell (not a dedicated
-  tool like `semantic-release`). Simpler but less feature-complete — no
-  changelog generation, no release notes on GitHub.
+  tool like `semantic-release`). Simpler but less feature-complete.
+  ~~No changelog generation, no release notes on GitHub.~~
+  Superseded — see [ADR-0010](0010-github-releases-with-changelog.md).
 - ~~`peter-evans/dockerhub-description` may require a Docker Hub PAT with
   broader permissions than a scoped registry token. If the README sync
   fails silently, it does not block the image publish.~~
