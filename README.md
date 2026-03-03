@@ -294,54 +294,116 @@ services:
 
 ## Unraid Installation
 
-This image is compatible with Unraid's Community Applications (CA) plugin.
+This image is available as an Unraid
+[Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
+template. The template is currently in **beta** — CA will show a warning
+before install, which is expected. Please
+[report issues](https://github.com/benedicteb/obsidian-git-backup-docker/issues)
+if you encounter problems.
+
+### Before You Start
+
+Before installing on Unraid, you need to obtain your Obsidian auth token on a
+**desktop or laptop** (not on the Unraid server — a web browser is required):
+
+1. Install Node.js
+2. Run `npm install -g obsidian-headless`
+3. Run `ob login` — this opens a browser for authentication
+4. Copy the token from the `auth_token` file:
+   - **macOS**: `~/.obsidian-headless/auth_token`
+   - **Linux**: `~/.config/obsidian-headless/auth_token`
+   - **Windows**: `%USERPROFILE%\.obsidian-headless\auth_token`
+
+You also need a git repository with SSH access (e.g., a private GitHub repo).
 
 ### Add the Template Repository
 
-1. In the Unraid web UI, go to the **Apps** tab (requires the
-   [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
-   plugin).
+1. In the Unraid web UI, go to the **Apps** tab.
 2. Click the **Settings** icon (gear) to open CA settings.
 3. Under **Template Repositories**, add this URL:
    ```
    https://github.com/benedicteb/obsidian-git-backup-docker
    ```
-4. Click **Save**, then search for **obsidian-git-backup** and click **Install**.
+4. Click **Save** and wait 1–2 minutes for CA to index the repository.
+5. Search for **obsidian-git-backup** and click **Install**.
 
-### Configure in Unraid
+### Configure the Container
 
-The template provides a form with all required and optional settings:
+> **Tip:** For best I/O performance with frequent small file changes, ensure
+> your `appdata` share uses "cache-prefer" or "cache-only" mode (Shares tab)
+> before installing. The default appdata paths will then land on the cache
+> drive automatically.
 
-- **Obsidian Auth Token** — Your auth token (see [Quick Start](#1-configure)
-  above for how to obtain it).
-- **Vault Name** — Name of the remote vault to sync (case-sensitive).
-- **Git Remote URL** — SSH URL of your git repo.
+The template form includes all required and optional settings:
 
-The **E2EE Password** field is visible on the main form (after Git Remote URL)
-for users with encrypted vaults. Other optional settings (debounce period,
-branch name, git author) are under **Advanced View**.
+| Field | Required | Notes |
+|---|---|---|
+| Obsidian Auth Token | Yes | The token from `ob login` above. Masked in the UI. |
+| Vault Name | Yes | Exactly as shown in the Obsidian app (case-sensitive). Run `ob sync-list-remote` to list vaults. You can also use the vault UUID. |
+| Git Remote URL | Yes | SSH URL, e.g. `git@github.com:user/vault-backup.git` |
+| E2EE Password | If encrypted | Only for E2E encrypted vaults. Your git backup will contain **plaintext** notes — secure your git remote accordingly. |
+| Config Storage | Yes | Default: `/mnt/user/appdata/obsidian-git-backup/config` |
+| Vault Storage | Yes | Default: `/mnt/user/appdata/obsidian-git-backup/vault` |
 
-The default paths use `/mnt/user/appdata/obsidian-git-backup/` for persistent
-storage, which is the standard Unraid convention.
+Additional settings (git author, branch, debounce period) are under
+**Advanced View**.
 
-> **Note:** PUID/PGID default to `99`/`100` (Unraid's `nobody`/`users`)
-> in the template, which is the correct setting for Unraid. The Docker image
-> defaults to `1000`/`1000` for non-Unraid systems.
+> **Note:** PUID/PGID default to `99`/`100` (Unraid's `nobody`/`users`),
+> which is correct for most Unraid setups. Changing these means Unraid's
+> *New Permissions* tool may create files with unexpected ownership.
+
+The container is managed by Unraid's Autostart mechanism — no `--restart`
+policy is set, which lets Unraid control the container lifecycle cleanly
+across array start/stop cycles.
 
 ### After Installing
 
-Check the container logs (Docker tab → click the container icon → **Log**)
-for the `NEW SSH KEY GENERATED` banner. Copy the public key and add it to
-your git server:
+1. Go to the **Docker** tab, click the container's icon (the coloured
+   square), and select **Log**.
+2. Look for the `NEW SSH KEY GENERATED` banner.
+3. Copy the public key and add it to your git server:
+   - **GitHub**: Settings → SSH and GPG keys → New SSH key
+   - **GitLab**: Preferences → SSH Keys → Add new key
+4. The container retries every 30 seconds — once you add the key, it
+   connects automatically. No restart needed.
 
-- **GitHub**: Settings → SSH and GPG keys → New SSH key
-- **GitLab**: Preferences → SSH Keys → Add new key
+### Multiple Vaults on Unraid
 
-The container retries every 30 seconds — once you add the key, it will
-connect automatically. No restart needed.
+Run one container per vault. To add another vault, install the template
+again with:
+- A different container name (e.g., `obsidian-git-backup-work`)
+- Different appdata paths (e.g., `/mnt/user/appdata/obsidian-git-backup-work/`)
+- A different vault name and git remote URL
 
-For multiple vaults, install the template multiple times with different names,
-vault settings, and appdata paths.
+Each container counts as one device on your Obsidian Sync plan — check
+your plan's device limit at [obsidian.md/account](https://obsidian.md/account).
+
+> **Warning:** Never point two containers at the same vault simultaneously.
+> Each container must also have its own separate appdata paths — sharing
+> paths between containers causes silent data corruption.
+
+### Troubleshooting on Unraid
+
+**Container keeps restarting / inotifywait crashes on a busy server:**
+
+The filesystem watcher uses inotify, which has a host-level watch limit
+shared by all containers. On busy Unraid servers, the default limit (8,192)
+can be exhausted. Check the current value:
+
+```sh
+cat /proc/sys/fs/inotify/max_user_watches
+```
+
+To raise it (64× the default):
+
+```sh
+# Temporary (until next reboot):
+echo 524288 > /proc/sys/fs/inotify/max_user_watches
+
+# Persistent — add to Settings → Boot → Go file (/boot/config/go):
+# Run this once; repeat runs append duplicate lines.
+echo 'echo 524288 > /proc/sys/fs/inotify/max_user_watches' >> /boot/config/go
+```
 
 ## Publishing
 
