@@ -10,6 +10,31 @@ Every time Obsidian Sync delivers changes, they are committed and pushed to
 your git remote — giving you a private, versioned backup of your vault with
 full history.
 
+## Table of Contents
+
+- [Using the Pre-Built Image](#using-the-pre-built-image)
+- [How It Works](#how-it-works)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+  - [1. Configure](#1-configure)
+  - [2. Start](#2-start)
+  - [3. Set Up SSH Key](#3-set-up-ssh-key)
+  - [4. Verify](#4-verify)
+- [Environment Variables](#environment-variables)
+- [Volumes](#volumes)
+- [User / Group Identifiers (PUID/PGID)](#user--group-identifiers-puidpgid)
+- [Architecture](#architecture)
+- [Multiple Vaults](#multiple-vaults)
+- [Unraid Installation](#unraid-installation)
+  - [Before You Start](#before-you-start)
+  - [Add the Template Repository](#add-the-template-repository)
+  - [Configure the Container](#configure-the-container)
+  - [After Installing](#after-installing)
+  - [Multiple Vaults on Unraid](#multiple-vaults-on-unraid)
+  - [Troubleshooting on Unraid](#troubleshooting-on-unraid)
+- [Publishing](#publishing)
+- [Limitations (PoC)](#limitations-poc)
+
 ## Using the Pre-Built Image
 
 Pre-built images are published to Docker Hub for `linux/amd64` and `linux/arm64`:
