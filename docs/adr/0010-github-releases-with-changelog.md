@@ -47,17 +47,20 @@ Use **hand-rolled changelog generation** (option 3) and create
 Implementation details:
 
 - **Changelog generation**: A new workflow step after the Docker build
-  runs `git log --pretty=format:"%s"` over the commit range and
+  runs `git log --pretty=tformat:"%s"` over the commit range and
   categorises each commit subject by its conventional commit prefix:
   - `type!:` → Breaking Changes
   - `feat:` → Features
-  - `fix:` → Fixes
-  - Everything else → Other
+  - `fix:` → Bug Fixes
+  - Everything else → Maintenance
   - Commit bodies are also scanned for `BREAKING CHANGE` footers
+  - The conventional commit prefix (`feat:`, `fix:`, etc.) is stripped
+    from each bullet to avoid redundancy with the section header
 
 - **Output format**: Markdown with `###` section headers, bulleted
-  commit subjects, and a Docker pull command at the bottom. Written
-  to a temp file and passed to `gh release create --notes-file`.
+  commit subjects (prefix-stripped), a link to the full GitHub diff,
+  a Docker pull command, and update instructions. Written to a temp
+  file and passed to `gh release create --notes-file`.
 
 - **GitHub Release replaces bare tag**: `gh release create` creates
   the git tag and the GitHub Release atomically. This replaces the
@@ -67,7 +70,7 @@ Implementation details:
 - **Temp file approach**: Commit subjects are written to categorised
   temp files (`*.breaking`, `*.feat`, `*.fix`, `*.other`) to avoid
   shell variable mutation issues in pipeline subshells. Cleaned up
-  after the changelog is assembled.
+  via an EXIT trap to ensure cleanup even on mid-step failures.
 
 - **First release handling**: When `previous_tag` is `v0.0.0` (no
   prior tags exist), the changelog header reads "First release."
@@ -83,8 +86,8 @@ Implementation details:
   how to get that specific version.
 - GitHub Releases provide an Atom feed (`/releases.atom`) that users
   can subscribe to for update notifications.
-- The changelog categories (Features, Fixes, Other) help users quickly
-  assess the impact and relevance of an update.
+- The changelog categories (Features, Bug Fixes, Maintenance) help users
+  quickly assess the impact and relevance of an update.
 - No additional dependencies — uses `git`, `grep`, `sed`, and `gh`,
   all pre-installed on GitHub Actions runners.
 
@@ -92,14 +95,18 @@ Implementation details:
 
 - The changelog is commit-subject-level, not curated. Noisy commit
   histories (e.g., many `docs:` or `chore:` commits) produce long
-  "Other" sections. Acceptable for a pre-stable project with
+  "Maintenance" sections. Acceptable for a pre-stable project with
   conventional commit discipline.
 - The hand-rolled parser does not handle scoped types (`feat(sync):`)
   specially — they are grouped with their unscoped counterparts. This
   is correct behaviour but loses the scope information in the grouping.
 - Merge commits or non-conventional commit messages end up in the
-  "Other" category. The project uses conventional commits consistently,
-  so this is rarely an issue.
+  "Maintenance" category. The project uses conventional commits
+  consistently, so this is rarely an issue.
+- `BREAKING CHANGE` footer text is not included verbatim in the
+  changelog — only a reference to check commit messages is shown.
+  The breaking change subject line is included when the `!` suffix
+  notation is used.
 - The changelog format is fixed (Markdown sections). Switching to a
   different format (e.g., keep-a-changelog, JSON) would require
   rewriting the generation step.
