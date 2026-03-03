@@ -72,7 +72,7 @@ Run one container per vault. For multiple vaults, install the template once per 
     Target="OBSIDIAN_GIT_E2EE_PASSWORD"
     Default=""
     Mode=""
-    Description="End-to-end encryption password. Only needed if the vault uses E2E encryption. Note: obsidian-headless decrypts vault contents locally — your git repository will contain plaintext files. E2EE protects the Obsidian Sync transport only."
+    Description="Only needed if the vault uses E2E encryption. Important: obsidian-headless decrypts the vault locally before writing files. Your git repository will contain plaintext notes — secure your git remote accordingly. E2EE prevents Obsidian's servers from reading your data, but the local copy (and your git backup) is always unencrypted."
     Type="Variable"
     Display="always"
     Required="false"
