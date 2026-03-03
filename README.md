@@ -1,5 +1,7 @@
 # obsidian-git-backup-docker
 
+[![Docker Hub](https://img.shields.io/docker/v/benedicteb/obsidian-git-backup?sort=semver&label=Docker%20Hub)](https://hub.docker.com/r/benedicteb/obsidian-git-backup)
+
 A Docker image that syncs an [Obsidian](https://obsidian.md) vault via
 [obsidian-headless](https://help.obsidian.md/headless) and automatically
 backs it up to a git repository.
