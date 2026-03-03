@@ -345,14 +345,18 @@ You also need a git repository with SSH access (e.g., a private GitHub repo).
 
 ### Add the Template Repository
 
-1. In the Unraid web UI, go to the **Apps** tab.
-2. Click the **Settings** icon (gear) to open CA settings.
-3. Under **Template Repositories**, add this URL:
+This template is not yet in the official CA index. To install it, add the
+template XML as a **CA private repository** on your Unraid flash drive:
+
+1. Open an Unraid terminal (SSH or WebGUI console) and run:
+   ```sh
+   mkdir -p /boot/config/plugins/community.applications/private/obsidian-git-backup
+   wget -O /boot/config/plugins/community.applications/private/obsidian-git-backup/obsidian-git-backup.xml \
+     https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml
    ```
-   https://github.com/benedicteb/obsidian-git-backup-docker
-   ```
-4. Click **Save** and wait 1–2 minutes for CA to index the repository.
-5. Search for **obsidian-git-backup** and click **Install**.
+2. Go to the **Apps** tab — the template now appears under a **Private**
+   category (you may need to refresh the page).
+3. Search for **obsidian-git-backup** and click **Install**.
 
 ### Configure the Container
 
