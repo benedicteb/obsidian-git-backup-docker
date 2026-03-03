@@ -317,8 +317,9 @@ The template provides a form with all required and optional settings:
 - **Vault Name** — Name of the remote vault to sync (case-sensitive).
 - **Git Remote URL** — SSH URL of your git repo.
 
-Optional settings (debounce period, branch name, E2EE password) are under
-**Advanced View** at the bottom of the install form.
+The **E2EE Password** field is visible on the main form (below Vault Name)
+for users with encrypted vaults. Other optional settings (debounce period,
+branch name, git author) are under **Advanced View**.
 
 The default paths use `/mnt/user/appdata/obsidian-git-backup/` for persistent
 storage, which is the standard Unraid convention.
