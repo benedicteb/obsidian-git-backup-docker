@@ -2,8 +2,9 @@
 # Docker Hub Publish Workflow
 #
 # Triggers on every push to main. Determines the next semantic version by
-# parsing conventional commit messages since the last tag, creates a git tag,
-# and pushes both :latest and :vX.Y.Z to Docker Hub.
+# parsing conventional commit messages since the last tag, builds and pushes
+# both :latest and :vX.Y.Z to Docker Hub, then creates a GitHub Release
+# with a categorised changelog.
 #
 # Required GitHub secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME — Docker Hub username
@@ -38,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: write  # Needed to push git tags
+      contents: write  # Needed to create GitHub Releases (which create git tags)
 
     steps:
       # -----------------------------------------------------------------
@@ -141,6 +142,8 @@ jobs:
           echo "New version: ${NEW_VERSION}" >&2
           echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "bump=${BUMP}" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "commit_range=${COMMIT_RANGE}" >> "$GITHUB_OUTPUT"
 
       # -----------------------------------------------------------------
       # Set up Docker Buildx (required for multi-platform builds)
@@ -187,18 +190,104 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       # -----------------------------------------------------------------
-      # Create and push git tag (after build succeeds)
+      # Generate changelog from conventional commits since last tag
       #
-      # Placed after the Docker build so that a failed build does not
-      # leave an orphaned version tag with no corresponding image.
+      # Groups commits by type (features, fixes, other) and formats
+      # them as a Markdown list for the GitHub Release body.
       # -----------------------------------------------------------------
-      - name: Create git tag
+      - name: Generate changelog
+        id: changelog
         env:
+          COMMIT_RANGE: ${{ steps.version.outputs.commit_range }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
           NEW_VERSION: ${{ steps.version.outputs.version }}
+          IMAGE: ${{ env.IMAGE_NAME }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
-          git push origin "$NEW_VERSION"
+
+          CHANGELOG_FILE=$(mktemp)
+
+          # Categorise commits by conventional commit type into temp files
+          git log --pretty=format:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
+            [ -z "$subject" ] && continue
+
+            # Check for breaking changes (trailing ! before colon)
+            if printf '%s' "$subject" | grep -qE '^[a-z]+(\(.+\))?!:'; then
+              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.breaking"
+            elif printf '%s' "$subject" | grep -qE '^feat(\(.+\))?:'; then
+              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.feat"
+            elif printf '%s' "$subject" | grep -qE '^fix(\(.+\))?:'; then
+              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.fix"
+            else
+              printf '%s\n' "$subject" >> "${CHANGELOG_FILE}.other"
+            fi
+          done
+
+          # Also check commit bodies for BREAKING CHANGE footer
+          if [ ! -s "${CHANGELOG_FILE}.breaking" ]; then
+            if git log --pretty=format:"%b" "$COMMIT_RANGE" -- | grep -qiE "BREAKING[- ]CHANGE"; then
+              echo "See commit messages for breaking change details" > "${CHANGELOG_FILE}.breaking"
+            fi
+          fi
+
+          # Build the changelog
+          {
+            if [ "$PREVIOUS_TAG" = "v0.0.0" ]; then
+              printf 'First release.\n\n'
+            else
+              printf 'Changes since %s:\n\n' "$PREVIOUS_TAG"
+            fi
+
+            if [ -s "${CHANGELOG_FILE}.breaking" ]; then
+              printf '### Breaking Changes\n\n'
+              sed 's/^/- /' "${CHANGELOG_FILE}.breaking"
+              printf '\n'
+            fi
+
+            if [ -s "${CHANGELOG_FILE}.feat" ]; then
+              printf '### Features\n\n'
+              sed 's/^/- /' "${CHANGELOG_FILE}.feat"
+              printf '\n'
+            fi
+
+            if [ -s "${CHANGELOG_FILE}.fix" ]; then
+              printf '### Fixes\n\n'
+              sed 's/^/- /' "${CHANGELOG_FILE}.fix"
+              printf '\n'
+            fi
+
+            if [ -s "${CHANGELOG_FILE}.other" ]; then
+              printf '### Other\n\n'
+              sed 's/^/- /' "${CHANGELOG_FILE}.other"
+              printf '\n'
+            fi
+
+            printf '**Docker image:** `docker pull %s:%s`\n' "$IMAGE" "$NEW_VERSION"
+          } > "$CHANGELOG_FILE"
+
+          # Clean up temp category files
+          rm -f "${CHANGELOG_FILE}.breaking" "${CHANGELOG_FILE}.feat" \
+                "${CHANGELOG_FILE}.fix" "${CHANGELOG_FILE}.other"
+
+          # Output the changelog file path for the release step
+          echo "changelog_file=${CHANGELOG_FILE}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------
+      # Create GitHub Release with changelog (after build succeeds)
+      #
+      # Uses the GitHub CLI to create a release, which also creates and
+      # pushes the git tag. Placed after the Docker build so that a
+      # failed build does not leave an orphaned version tag.
+      # -----------------------------------------------------------------
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+          CHANGELOG_FILE: ${{ steps.changelog.outputs.changelog_file }}
+        run: |
+          set -euo pipefail
+          gh release create "$NEW_VERSION" \
+            --title "$NEW_VERSION" \
+            --notes-file "$CHANGELOG_FILE" \
+            --target "${{ github.sha }}"
 
