@@ -52,7 +52,7 @@ Run one container per vault. For multiple vaults, install the template once per 
     Target="OBSIDIAN_AUTH_TOKEN"
     Default=""
     Mode=""
-    Description="Your Obsidian account auth token. Treat this like a password — anyone with it can read ALL your synced vaults (not just this one). To get it: on your desktop/laptop, install obsidian-headless (npm install -g obsidian-headless), run 'ob login' (opens a browser), then find the token file by running: find ~/.obsidian-headless ~/.config/obsidian-headless -name auth_token 2>/dev/null. The file contains the raw token string (not JSON). See README for details."
+    Description="SENSITIVE: grants read access to ALL your Obsidian Sync vaults — treat like a password. To get it: on your desktop/laptop, install obsidian-headless (npm install -g obsidian-headless), run 'ob login' (opens a browser), then find the token file: on macOS/Linux run 'find ~/.obsidian-headless ~/.config/obsidian-headless -name auth_token 2>/dev/null', on Windows check %USERPROFILE%\.obsidian-headless\auth_token. The file contains the raw token string (not JSON). See README for details."
     Type="Variable"
     Display="always"
     Required="true"
