@@ -25,7 +25,7 @@ Features:&#xD;
 This container has no web UI and exposes no ports. Monitor it via container logs. Requires outbound internet access (TCP 443 for Obsidian Sync, TCP 22 for SSH git push).&#xD;
 &#xD;
 Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
-If your vault uses E2E encryption, enter your E2EE password below the Vault Name field.&#xD;
+If your vault uses E2E encryption, enter your password in the E2EE Password field below.&#xD;
 &#xD;
 Run one container per vault. For multiple vaults, install the template once per vault and change the container name (e.g. 'obsidian-git-backup-work', 'obsidian-git-backup-personal') and appdata paths. See the project README for full setup instructions.</Overview>
   <Category>Backup: Productivity: Tools:</Category>
@@ -63,7 +63,18 @@ Run one container per vault. For multiple vaults, install the template once per 
     Target="OBSIDIAN_GIT_VAULT_NAME"
     Default=""
     Mode=""
-    Description="The name of your Obsidian vault exactly as shown in the Obsidian app (e.g. 'My Notes'). Must match exactly — case-sensitive, including spaces. Run 'ob sync-list-remote' on your desktop to list available vaults."
+    Description="The name of your Obsidian vault exactly as shown in the Obsidian app (e.g. 'My Notes'). Must match exactly — case-sensitive, including spaces. Run 'ob sync-list-remote' on your desktop to list available vaults. You can also use the vault ID (UUID) — required if multiple vaults share the same name."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false"/>
+
+  <Config
+    Name="Git Remote URL"
+    Target="OBSIDIAN_GIT_REMOTE_URL"
+    Default=""
+    Mode=""
+    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git"
     Type="Variable"
     Display="always"
     Required="true"
@@ -79,17 +90,6 @@ Run one container per vault. For multiple vaults, install the template once per 
     Display="always"
     Required="false"
     Mask="true"/>
-
-  <Config
-    Name="Git Remote URL"
-    Target="OBSIDIAN_GIT_REMOTE_URL"
-    Default=""
-    Mode=""
-    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git. After first start, check container logs for the generated SSH public key and add it to your git server."
-    Type="Variable"
-    Display="always"
-    Required="true"
-    Mask="false"/>
 
   <!-- =================================================================== -->
   <!-- Volumes                                                              -->
