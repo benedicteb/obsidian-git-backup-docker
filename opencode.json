@@ -9,6 +9,14 @@
       "mode": "primary",
       "description": "Senior Docker developer. Builds maintainable, production-grade container images following linuxserver.io conventions.",
       "prompt": "{file:.opencode/prompts/build.md}"
+  },
+  "mcp": {
+    "pycharm": {
+      "type": "remote",
+      "url": "http://localhost:64342/sse",
+      "headers": {
+        "IJ_MCP_SERVER_PROJECT_PATH": "{env:PWD}"
+      }
     }
   }
 }
