@@ -9,6 +9,7 @@
       "mode": "primary",
       "description": "Senior Docker developer. Builds maintainable, production-grade container images following linuxserver.io conventions.",
       "prompt": "{file:.opencode/prompts/build.md}"
+    }
   },
   "mcp": {
     "pycharm": {
