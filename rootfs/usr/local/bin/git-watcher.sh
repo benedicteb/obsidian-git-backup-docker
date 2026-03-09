@@ -281,7 +281,23 @@ while true; do
       fi
       # Timeout — no local changes, but the remote may have advanced.
       log "No local changes in ${PULL_INTERVAL}s. Checking remote..."
-      do_pull || log_error "Periodic pull failed (will retry next interval)"
+      head_before="$(git -C "${VAULT}" rev-parse HEAD 2>/dev/null || echo "")"
+      if do_pull; then
+        # If pull created new commits (e.g., a merge commit from the
+        # fallback path), push them so the remote stays in sync.
+        head_after="$(git -C "${VAULT}" rev-parse HEAD 2>/dev/null || echo "")"
+        if [ "${head_before}" != "${head_after}" ] && [ -n "${head_after}" ]; then
+          log "Pull created new commits. Pushing to origin/${BRANCH}..."
+          push_output="$(git -C "${VAULT}" push -u origin "${BRANCH}" 2>&1)" && {
+            log "Pushed to origin/${BRANCH}"
+            push_failures=0
+          } || {
+            log_error "Push after periodic pull failed: ${push_output}"
+          }
+        fi
+      else
+        log_error "Periodic pull failed (will retry next interval)"
+      fi
       continue
     fi
   else
