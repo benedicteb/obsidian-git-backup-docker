@@ -131,16 +131,19 @@ ENV PUID=1000
 ENV PGID=1000
 
 # ---------------------------------------------------------------------------
-# Git LFS — Large File Storage for binary assets
+# Git LFS — Large File Storage for binary assets (opt-in)
 #
 # When enabled, binary files (images, PDFs, videos, audio) are stored via
 # Git LFS instead of directly in the git repository. This keeps the repo
 # small and fast even with large attachments.
 #
+# Disabled by default because many git servers do not have LFS enabled.
+# Set OBSIDIAN_GIT_LFS_ENABLED=true to activate.
+#
 # OBSIDIAN_GIT_LFS_EXTENSIONS overrides the default list of file extensions
 # tracked by LFS. Set to a comma-separated list (e.g., "png,jpg,pdf").
 # ---------------------------------------------------------------------------
-ENV OBSIDIAN_GIT_LFS_ENABLED=true
+ENV OBSIDIAN_GIT_LFS_ENABLED=false
 ENV OBSIDIAN_GIT_LFS_EXTENSIONS="png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf"
 
 # ---------------------------------------------------------------------------
