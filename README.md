@@ -77,6 +77,8 @@ Obsidian Sync ──> obsidian-headless ──> vault directory ──> inotifyw
 2. A **filesystem watcher** (inotifywait) detects when files change.
 3. After a configurable **debounce period** (default 30s of quiet), all
    changes are committed and pushed to your git remote.
+4. A **periodic pull** (default every 5 minutes) checks the remote for
+   changes even when no local files have changed.
 
 The container uses [s6-overlay](https://github.com/just-containers/s6-overlay)
 for process supervision — both services are monitored and automatically
@@ -228,6 +230,7 @@ You should see:
 | `OBSIDIAN_GIT_USER_EMAIL` | No | `obsidian-git-backup@local` | Git commit author email |
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
+| `OBSIDIAN_GIT_PULL_INTERVAL` | No | `300` | Seconds between periodic pulls from the remote (catches remote-only changes). Set to `0` to disable. Minimum `10` when enabled. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
 | `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Store binary attachments (images, PDFs, video) via Git LFS instead of directly in git. Requires LFS support on your git remote. See [Git LFS](#git-lfs-large-file-storage). |
 | `OBSIDIAN_GIT_LFS_EXTENSIONS` | No | *(see below)* | Comma-separated file extensions to track via LFS. |
