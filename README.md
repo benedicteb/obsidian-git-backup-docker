@@ -25,6 +25,7 @@ full history.
 - [User / Group Identifiers (PUID/PGID)](#user--group-identifiers-puidpgid)
 - [Architecture](#architecture)
 - [Multiple Vaults](#multiple-vaults)
+- [Git LFS (Large File Storage)](#git-lfs-large-file-storage)
 - [Unraid Installation](#unraid-installation)
   - [Before You Start](#before-you-start)
   - [Add the Template](#add-the-template)
@@ -228,6 +229,8 @@ You should see:
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `OBSIDIAN_GIT_LFS_ENABLED` | No | `true` | Enable Git LFS for binary files. Set to `false` to disable. |
+| `OBSIDIAN_GIT_LFS_EXTENSIONS` | No | *(see below)* | Comma-separated file extensions to track via LFS. |
 | `PUID` | No | `1000` | Your host user ID. Needed for bind mounts — run `id -u` to find it. |
 | `PGID` | No | `1000` | Your host group ID. Needed for bind mounts — run `id -g` to find it. |
 
@@ -318,6 +321,58 @@ services:
       - config-work:/config
       - vault-work:/vault
 ```
+
+## Git LFS (Large File Storage)
+
+Git LFS is **enabled by default**. Binary files — images, PDFs, videos,
+audio, and other attachments — are stored via [Git LFS](https://git-lfs.com)
+instead of directly in the git repository. This keeps your repo small and
+fast to clone, even if your vault contains large attachments.
+
+**Requirements:** Your git remote must support LFS. GitHub, GitLab, Gitea,
+Forgejo, and Bitbucket all support LFS. Check your provider's documentation
+for storage limits.
+
+### Default tracked extensions
+
+The default extension list covers common binary formats found in Obsidian
+vaults:
+
+| Category | Extensions |
+|---|---|
+| Images | `png`, `jpg`, `jpeg`, `gif`, `bmp`, `svg`, `webp`, `ico`, `tif`, `tiff` |
+| Video | `mp4`, `mov`, `avi`, `mkv`, `webm` |
+| Audio | `mp3`, `wav`, `ogg`, `flac`, `m4a`, `aac` |
+| Documents | `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx` |
+| Archives | `zip`, `tar`, `gz`, `7z`, `rar` |
+
+### Customizing tracked extensions
+
+Override the default list by setting `OBSIDIAN_GIT_LFS_EXTENSIONS` to a
+comma-separated list of file extensions (without dots):
+
+```sh
+# Only track images and PDFs
+OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,pdf
+```
+
+### Disabling LFS
+
+If your git remote doesn't support LFS, or you prefer storing everything
+directly in git:
+
+```sh
+OBSIDIAN_GIT_LFS_ENABLED=false
+```
+
+### Migrating an existing repo to LFS
+
+If you enable LFS on a repo that already has binary files committed
+directly, the existing files stay in git history as regular objects. Only
+*new or modified* files matching the tracked extensions will be stored via
+LFS going forward. To migrate existing files, you would need to run
+`git lfs migrate` manually — see the
+[Git LFS documentation](https://github.com/git-lfs/git-lfs/blob/main/docs/man/git-lfs-migrate.adoc).
 
 ## Unraid Installation
 
