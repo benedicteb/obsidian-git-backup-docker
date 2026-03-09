@@ -215,23 +215,22 @@ MARKER_END="# --- end obsidian-git-backup ---"
 
 MANAGED_BLOCK="${MARKER_START}
 # Obsidian workspace state (changes on every app focus, causes churn)
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
 .obsidian/workspace*.json
 
 # Obsidian graph view state (changes when graph is opened/panned)
 .obsidian/graph.json
 
-# Obsidian cache (rebuilt automatically)
+# Obsidian cache (rebuilt automatically, not user content)
 .obsidian/cache/
 
-# Obsidian trash
+# Obsidian trash (soft-delete holding area)
 .trash/
 
-# Plugin runtime data — many plugins (Dataview, Various Complements, etc.)
-# write frequently to data.json, causing noisy commits.
-# Remove this line if you want to track plugin settings in git.
-.obsidian/plugins/*/data.json
+# Uncomment the next line to ignore ALL plugin data.json files.
+# WARNING: this also ignores plugin *settings* (Templater, Tasks,
+# Periodic Notes, QuickAdd, etc.) — your backup will be incomplete.
+# Only enable this if plugin-settings churn is unacceptable.
+# .obsidian/plugins/*/data.json
 
 # Uncomment the following lines if you do NOT want to track Obsidian
 # app configuration (these change when you adjust settings on any device):
