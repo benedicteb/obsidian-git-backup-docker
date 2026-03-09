@@ -10,6 +10,7 @@
 # 6. Sets up Git LFS (if enabled)
 # 7. Writes vault .gitignore
 # 8. Sets up obsidian-headless sync
+# 9. Configures sync file types and settings (workaround for upstream bug)
 #
 # This script runs as root but delegates user-facing operations
 # (git, ssh, ob) to the 'obsidian' user via su-exec. The init-usermap
