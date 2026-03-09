@@ -178,15 +178,37 @@ do_commit_and_push() {
 }
 
 # ---------------------------------------------------------------------------
+# FIFO for inotifywait output
+#
+# inotifywait writes to a named FIFO; the main loop reads from it.
+# This keeps the read loop in the main shell process (not a pipe
+# subshell), so signal traps work correctly — in particular, the
+# shutdown trap that commits pending changes before the container stops.
+#
+# A pipe (inotifywait | while read ...) would put the while loop in a
+# subshell where POSIX requires traps to be reset to default disposition.
+# ---------------------------------------------------------------------------
+EVENTS_FIFO="$(mktemp -u /tmp/git-watcher-events.XXXXXX)"
+mkfifo "${EVENTS_FIFO}"
+
+cleanup() {
+  rm -f "${EVENTS_FIFO}"
+  # Kill inotifywait if still running
+  [ -n "${INOTIFY_PID:-}" ] && kill "${INOTIFY_PID}" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
 # Graceful shutdown: commit any pending changes before exit
 # ---------------------------------------------------------------------------
 shutdown() {
   log "Shutting down — committing any pending changes..."
   do_commit_and_push || log_error "Final commit/push failed"
+  cleanup
   exit 0
 }
 
 trap shutdown TERM INT
+trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
 # Main: watch for filesystem events and debounce
@@ -195,7 +217,7 @@ log "Starting filesystem watcher on ${VAULT}"
 if [ "${PULL_INTERVAL}" -gt 0 ]; then
   log "Debounce: ${DEBOUNCE}s | Pull interval: ${PULL_INTERVAL}s | Branch: ${BRANCH}"
 else
-  log "Debounce: ${DEBOUNCE}s | Periodic pull: disabled | Branch: ${BRANCH}"
+  log "Debounce: ${DEBOUNCE}s | Periodic pull: disabled (pull only before push) | Branch: ${BRANCH}"
 fi
 
 # Wait for the vault to be ready (git repo must exist)
@@ -226,34 +248,39 @@ log "Git repository found. Watching for changes..."
 # -e = event types to watch
 # --format = output format (we only care that *something* changed)
 #
-# The output is piped into a read loop that implements debouncing:
-# after the first event, drain all events for DEBOUNCE seconds of quiet,
-# then commit and push.
+# inotifywait writes to the FIFO in the background. The main loop
+# reads from the FIFO, keeping traps active in the main process.
 
 inotifywait -m -r \
   --exclude '/\.(git|trash)(/|$)|/\.obsidian/(workspace.*\.json|graph\.json|cache/)' \
   -e modify,create,delete,move \
   --format '%w%f' \
-  "${VAULT}" |
+  "${VAULT}" > "${EVENTS_FIFO}" 2>&1 &
+INOTIFY_PID=$!
+
+# Main event loop — reads from the FIFO (not a pipe subshell).
+# This runs in the main shell process where trap shutdown TERM INT
+# is active, ensuring graceful shutdown commits work correctly.
 while true; do
   # Wait for the next filesystem event OR a pull-interval timeout.
   # - If PULL_INTERVAL=0, block until a file event arrives (no periodic pull).
   # - If PULL_INTERVAL>0, timeout after PULL_INTERVAL seconds of silence to
   #   pull any remote changes even when no local files have changed.
+  #
+  # read -t returns non-zero on BOTH timeout and EOF (FIFO closed).
+  # We distinguish them by measuring wall-clock time: a real timeout takes
+  # ~PULL_INTERVAL seconds, while EOF returns almost instantly (< 2s).
+  # The minimum PULL_INTERVAL of 10s provides a large safety margin.
   if [ "${PULL_INTERVAL}" -gt 0 ]; then
     read_start="$(date +%s)"
     if ! read -t "${PULL_INTERVAL}" -r changed_file; then
-      # read -t returns non-zero on BOTH timeout and EOF (pipe closed).
-      # Distinguish them: a real timeout takes ~PULL_INTERVAL seconds;
-      # an EOF from a closed pipe returns almost instantly (< 2s).
       read_elapsed=$(( $(date +%s) - read_start ))
       if [ "${read_elapsed}" -lt 2 ]; then
-        # EOF — inotifywait exited (pipe closed almost immediately)
+        # EOF — inotifywait exited (FIFO closed almost immediately)
         break
       fi
       # Timeout — no local changes, but the remote may have advanced.
-      # Pull only (no commit needed since nothing changed locally).
-      log "Pull interval reached (${PULL_INTERVAL}s). Checking remote for changes..."
+      log "No local changes in ${PULL_INTERVAL}s. Checking remote..."
       do_pull || log_error "Periodic pull failed (will retry next interval)"
       continue
     fi
@@ -267,8 +294,10 @@ while true; do
   log "Change detected: ${changed_file}. Waiting ${DEBOUNCE}s for more changes..."
 
   # Debounce: drain events until DEBOUNCE seconds of silence.
-  # read -t returns non-zero when the timeout expires (no more events).
-  # NOTE: read -t is a BusyBox ash extension (not POSIX).
+  # read -t returns non-zero when the timeout expires (no more events
+  # within DEBOUNCE seconds). This is safe under set -eu because the
+  # while loop tests read's exit code as its condition — a non-zero
+  # return simply terminates the loop without triggering set -e.
   debounce_count=0
   while read -t "${DEBOUNCE}" -r _; do
     debounce_count=$((debounce_count + 1))
@@ -278,8 +307,9 @@ while true; do
   log "Committing changes..."
 
   do_commit_and_push || log_error "Commit/push cycle failed (will retry on next change)"
-done
+done < "${EVENTS_FIFO}"
 
 # If we get here, inotifywait exited unexpectedly
 log_error "inotifywait exited unexpectedly. s6 will restart this service."
+cleanup
 exit 1
