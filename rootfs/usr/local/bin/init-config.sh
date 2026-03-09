@@ -7,8 +7,9 @@
 # 3. Configures SSH known_hosts handling
 # 4. Clones the git remote into /vault (retries until success)
 # 5. Configures git author
-# 6. Writes vault .gitignore
-# 7. Sets up obsidian-headless sync
+# 6. Sets up Git LFS (if enabled)
+# 7. Writes vault .gitignore
+# 8. Sets up obsidian-headless sync
 #
 # This script runs as root but delegates user-facing operations
 # (git, ssh, ob) to the 'obsidian' user via su-exec. The init-usermap
@@ -205,7 +206,129 @@ fi
 log "Git configured (user: ${OBSIDIAN_GIT_USER_NAME}, branch: ${OBSIDIAN_GIT_BRANCH})"
 
 # ---------------------------------------------------------------------------
-# 6. Vault .gitignore
+# 6. Git LFS setup (optional)
+#
+# When OBSIDIAN_GIT_LFS_ENABLED=true, initializes Git LFS in the repo
+# and writes a managed .gitattributes block that tracks binary files by
+# extension. Users can override the default extension list via
+# OBSIDIAN_GIT_LFS_EXTENSIONS (comma-separated, e.g. "png,jpg,pdf").
+#
+# The .gitattributes file uses the same managed-block pattern as
+# .gitignore (step 7) to allow updates on image upgrades while
+# preserving user-added entries.
+# ---------------------------------------------------------------------------
+OBSIDIAN_GIT_LFS_ENABLED="${OBSIDIAN_GIT_LFS_ENABLED:-false}"
+
+if [ "${OBSIDIAN_GIT_LFS_ENABLED}" = "true" ]; then
+  log "Git LFS enabled — initializing..."
+
+  # Install LFS hooks into the repo
+  run_as_user git -C /vault lfs install --local 2>&1 | while IFS= read -r line; do
+    log "lfs: ${line}"
+  done
+
+  # Build the .gitattributes managed block from the extensions list
+  OBSIDIAN_GIT_LFS_EXTENSIONS="${OBSIDIAN_GIT_LFS_EXTENSIONS:-png,jpg,jpeg,gif,bmp,svg,webp,ico,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,zip,tar,gz,7z,rar,doc,docx,xls,xlsx,ppt,pptx}"
+  GITATTRIBUTES="/vault/.gitattributes"
+  LFS_MARKER_START="# --- obsidian-git-backup LFS managed entries ---"
+  LFS_MARKER_END="# --- end obsidian-git-backup LFS ---"
+
+  # Build the LFS tracking lines from the comma-separated extension list
+  lfs_lines=""
+  # Use a temp var to iterate — avoids subshell issues with IFS
+  _remaining="${OBSIDIAN_GIT_LFS_EXTENSIONS}"
+  while [ -n "${_remaining}" ]; do
+    # Extract the first extension (before the first comma)
+    _ext="${_remaining%%,*}"
+    # Remove leading/trailing whitespace from the extension
+    _ext="$(echo "${_ext}" | tr -d ' ')"
+    if [ -n "${_ext}" ]; then
+      # Remove leading dot if user included one (e.g., ".png" → "png")
+      _ext="${_ext#.}"
+      lfs_lines="${lfs_lines}*.${_ext} filter=lfs diff=lfs merge=lfs -text
+"
+    fi
+    # Remove the processed extension from the remaining list
+    if [ "${_remaining}" = "${_remaining#*,}" ]; then
+      # No more commas — we've processed the last item
+      break
+    fi
+    _remaining="${_remaining#*,}"
+  done
+
+  LFS_MANAGED_BLOCK="${LFS_MARKER_START}
+# Binary files tracked by Git LFS.
+# Override with OBSIDIAN_GIT_LFS_EXTENSIONS (comma-separated extensions).
+${lfs_lines}${LFS_MARKER_END}"
+
+  if [ ! -f "${GITATTRIBUTES}" ]; then
+    log "Creating vault .gitattributes with LFS tracking rules..."
+    printf '%s\n' "${LFS_MANAGED_BLOCK}" > "${GITATTRIBUTES}"
+  elif grep -q "${LFS_MARKER_START}" "${GITATTRIBUTES}" 2>/dev/null; then
+    # Replace existing managed block (supports image upgrades / extension changes)
+    log "Updating vault .gitattributes LFS managed entries..."
+    tmp_attr="$(mktemp "${GITATTRIBUTES}.XXXXXX")"
+    tmp_attr2="$(mktemp "${GITATTRIBUTES}.XXXXXX")"
+    trap 'rm -f "${tmp_attr}" "${tmp_attr2}"' EXIT
+    # Extract user content (everything outside the markers)
+    in_lfs_block=false
+    while IFS= read -r line || [ -n "${line}" ]; do
+      case "${line}" in
+        "${LFS_MARKER_START}")
+          in_lfs_block=true
+          ;;
+        "${LFS_MARKER_END}")
+          in_lfs_block=false
+          ;;
+        *)
+          if ! ${in_lfs_block}; then
+            printf '%s\n' "${line}"
+          fi
+          ;;
+      esac
+    done < "${GITATTRIBUTES}" > "${tmp_attr}"
+    # Strip trailing blank lines (same technique as .gitignore)
+    awk '
+      { lines[NR] = $0 }
+      END {
+        last = NR
+        while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--
+        for (i = 1; i <= last; i++) print lines[i]
+      }
+    ' "${tmp_attr}" > "${tmp_attr2}"
+    mv "${tmp_attr2}" "${tmp_attr}"
+    if [ -s "${tmp_attr}" ]; then
+      printf '\n%s\n' "${LFS_MANAGED_BLOCK}" >> "${tmp_attr}"
+    else
+      printf '%s\n' "${LFS_MANAGED_BLOCK}" > "${tmp_attr}"
+    fi
+    mv "${tmp_attr}" "${GITATTRIBUTES}"
+    trap - EXIT
+  else
+    log "Appending LFS tracking rules to vault .gitattributes..."
+    printf '\n%s\n' "${LFS_MANAGED_BLOCK}" >> "${GITATTRIBUTES}"
+  fi
+
+  chown obsidian:obsidian "${GITATTRIBUTES}"
+
+  # Count tracked extensions for log output
+  ext_count=0
+  _remaining="${OBSIDIAN_GIT_LFS_EXTENSIONS}"
+  while [ -n "${_remaining}" ]; do
+    _ext="${_remaining%%,*}"
+    _ext="$(echo "${_ext}" | tr -d ' ')"
+    [ -n "${_ext}" ] && ext_count=$((ext_count + 1))
+    if [ "${_remaining}" = "${_remaining#*,}" ]; then break; fi
+    _remaining="${_remaining#*,}"
+  done
+
+  log "Git LFS configured (${ext_count} extensions tracked)"
+else
+  log "Git LFS disabled (OBSIDIAN_GIT_LFS_ENABLED=false)"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Vault .gitignore
 #
 # Uses start/end markers so the block can be updated on image upgrades.
 # ---------------------------------------------------------------------------
@@ -307,7 +430,7 @@ fi
 chown obsidian:obsidian "${GITIGNORE}"
 
 # ---------------------------------------------------------------------------
-# 7. Obsidian headless setup
+# 8. Obsidian headless setup
 # ---------------------------------------------------------------------------
 log "Setting up obsidian-headless sync..."
 
