@@ -25,6 +25,7 @@ full history.
 - [User / Group Identifiers (PUID/PGID)](#user--group-identifiers-puidpgid)
 - [Architecture](#architecture)
 - [Multiple Vaults](#multiple-vaults)
+- [Sync Filtering](#sync-filtering)
 - [Git LFS (Large File Storage)](#git-lfs-large-file-storage)
 - [Unraid Installation](#unraid-installation)
   - [Before You Start](#before-you-start)
@@ -232,6 +233,8 @@ You should see:
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_PULL_INTERVAL` | No | `3600` | How often (seconds) to pull remote changes when no local files have changed. Set to `0` to pull only before each push. Minimum `10` when enabled. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `OBSIDIAN_GIT_SYNC_FILE_TYPES` | No | `image,audio,video,pdf` | Attachment types Obsidian Sync downloads. See [Sync Filtering](#sync-filtering). |
+| `OBSIDIAN_GIT_SYNC_CONFIGS` | No | `app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data` | `.obsidian` config categories to sync. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Store binary attachments (images, PDFs, video) via Git LFS instead of directly in git. Requires LFS support on your git remote. See [Git LFS](#git-lfs-large-file-storage). |
 | `OBSIDIAN_GIT_LFS_EXTENSIONS` | No | *(see below)* | Comma-separated file extensions to track via LFS. |
 | `PUID` | No | `1000` | Your host user ID. Needed for bind mounts — run `id -u` to find it. |
@@ -323,6 +326,56 @@ services:
     volumes:
       - config-work:/config
       - vault-work:/vault
+```
+
+## Sync Filtering
+
+By default, the container syncs **all standard attachment types** (images,
+audio, video, PDFs) and most `.obsidian` configuration. You can customize
+what Obsidian Sync downloads using two environment variables.
+
+### File types
+
+`OBSIDIAN_GIT_SYNC_FILE_TYPES` controls which attachment types are synced:
+
+| Value | What it includes |
+|---|---|
+| `image` | PNG, JPG, GIF, BMP, WebP, SVG, AVIF |
+| `audio` | MP3, WAV, M4A, FLAC, OGG, Opus |
+| `video` | MP4, WebM, OGV, MOV, MKV |
+| `pdf` | PDF files |
+| `unsupported` | Any file extension not recognized by Obsidian |
+
+The default (`image,audio,video,pdf`) syncs all standard types. Markdown
+(`.md`) and Canvas (`.canvas`) files are **always synced** regardless of
+this setting.
+
+To include all file types including unknown extensions:
+
+```sh
+OBSIDIAN_GIT_SYNC_FILE_TYPES=image,audio,video,pdf,unsupported
+```
+
+### Config categories
+
+`OBSIDIAN_GIT_SYNC_CONFIGS` controls which `.obsidian` settings are synced:
+
+| Value | What it includes |
+|---|---|
+| `app` | `app.json`, `types.json` |
+| `appearance` | `appearance.json` |
+| `appearance-data` | Themes and CSS snippets |
+| `hotkey` | `hotkeys.json` |
+| `core-plugin` | `core-plugins.json` and migration settings |
+| `core-plugin-data` | Core plugin settings (JSON files in `.obsidian/`) |
+| `community-plugin` | `community-plugins.json` (plugin install list) |
+| `community-plugin-data` | Plugin data (`.obsidian/plugins/*/manifest.json`, `main.js`, `styles.css`, `data.json`) |
+
+The default does **not** include `community-plugin` or
+`community-plugin-data`. To sync everything including community plugins:
+
+```sh
+OBSIDIAN_GIT_SYNC_CONFIGS=app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data
 ```
 
 ## Git LFS (Large File Storage)
