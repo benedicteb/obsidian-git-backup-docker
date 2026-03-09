@@ -222,8 +222,15 @@ OBSIDIAN_GIT_LFS_ENABLED="${OBSIDIAN_GIT_LFS_ENABLED:-true}"
 if [ "${OBSIDIAN_GIT_LFS_ENABLED}" = "true" ]; then
   log "Git LFS enabled — initializing..."
 
-  # Install LFS hooks into the repo
-  run_as_user git -C /vault lfs install --local 2>&1 | while IFS= read -r line; do
+  # Install LFS hooks into the repo.
+  # Capture output and check exit code explicitly — a pipeline would
+  # swallow the exit code because BusyBox ash has no pipefail.
+  lfs_install_output="$(run_as_user git -C /vault lfs install --local 2>&1)" || {
+    log_error "git lfs install --local failed:"
+    log_error "  ${lfs_install_output}"
+    exit 1
+  }
+  echo "${lfs_install_output}" | while IFS= read -r line; do
     log "lfs: ${line}"
   done
 
