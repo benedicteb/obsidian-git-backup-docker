@@ -49,6 +49,70 @@ push_failures=0
 remote_branch_verified=false
 
 # ---------------------------------------------------------------------------
+# Pull from remote — rebase first, merge fallback if rebase fails
+#
+# Strategy:
+#   1. Try git pull --rebase (linear history, clean)
+#   2. If rebase fails (conflicts), abort and fall back to merge with
+#      -X ours (local/Obsidian content wins conflicts, remote history
+#      is fully preserved in the merge commit)
+#   3. --allow-unrelated-histories handles the case where local and
+#      remote were initialized independently (e.g., container started
+#      against an empty remote, then the remote was initialized
+#      separately from another machine)
+#
+# Returns 0 on success or if remote is empty. Returns 1 on failure.
+# On failure, local commits are preserved — the caller should still
+# attempt to push (which will fail on divergence but succeed if the
+# issue was transient).
+# ---------------------------------------------------------------------------
+do_pull() {
+  # Check if the remote branch exists yet. On a brand-new bare repo the
+  # remote has no branches at all — pulling would fail with
+  # "couldn't find remote ref <branch>".
+  #
+  # We cache the result after the first successful push to avoid a network
+  # round-trip (ls-remote) on every commit cycle.
+  if ! "${remote_branch_verified}"; then
+    if git -C "${VAULT}" ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+      remote_branch_verified=true
+    else
+      log "Remote branch origin/${BRANCH} does not exist yet — skipping pull"
+      return 0
+    fi
+  fi
+
+  # Strategy 1: Rebase (preferred — keeps linear history)
+  # --allow-unrelated-histories handles independently initialized repos
+  pull_output="$(git -C "${VAULT}" pull --rebase --allow-unrelated-histories origin "${BRANCH}" 2>&1)" && {
+    log "Pulled from origin/${BRANCH} (rebase)"
+    return 0
+  }
+
+  log_error "git pull --rebase failed:"
+  log_error "${pull_output}"
+
+  # Abort the failed rebase to restore the working tree
+  git -C "${VAULT}" rebase --abort 2>/dev/null || true
+
+  # Strategy 2: Merge fallback with local wins (-X ours)
+  # Creates a merge commit but preserves ALL history from both sides.
+  # -X ours: for conflicting hunks, keep the local (Obsidian) version.
+  # Non-conflicting remote changes are still merged in normally.
+  log "Retrying with merge strategy (local content wins conflicts)..."
+  merge_output="$(git -C "${VAULT}" pull --no-rebase --allow-unrelated-histories -X ours origin "${BRANCH}" 2>&1)" && {
+    log "Pulled from origin/${BRANCH} (merge, local wins)"
+    return 0
+  }
+
+  # Both strategies failed — this is unusual (e.g., network error, lock file)
+  log_error "git pull merge fallback also failed:"
+  log_error "${merge_output}"
+  log_error "Local commits are safe. Pull will be retried on the next cycle."
+  return 1
+}
+
+# ---------------------------------------------------------------------------
 # Commit and push any staged changes
 # ---------------------------------------------------------------------------
 do_commit_and_push() {
@@ -71,29 +135,8 @@ do_commit_and_push() {
     return 1
   fi
 
-  # Check if the remote branch exists yet. On a brand-new bare repo the
-  # remote has no branches at all — pulling would fail with
-  # "couldn't find remote ref <branch>".
-  #
-  # We cache the result after the first successful push to avoid a network
-  # round-trip (ls-remote) on every commit cycle.
-  if ! "${remote_branch_verified}"; then
-    if git -C "${VAULT}" ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
-      remote_branch_verified=true
-    fi
-  fi
-
-  if "${remote_branch_verified}"; then
-    # Remote branch exists — pull before push to handle any divergence
-    if ! git -C "${VAULT}" pull --rebase origin "${BRANCH}" 2>&1; then
-      log_error "git pull --rebase failed — your local commit is safe but may diverge from the remote."
-      log_error "This can happen if files were pushed from another source."
-      git -C "${VAULT}" rebase --abort 2>/dev/null || true
-      # Don't return error — local commit is preserved, will retry next cycle
-    fi
-  else
-    log "Remote is empty — this will be the first push to origin/${BRANCH}"
-  fi
+  # Pull before push to handle any divergence with the remote
+  do_pull || true  # don't abort on pull failure — still attempt push
 
   # Use -u (--set-upstream) so the first push to an empty remote creates the
   # branch. On subsequent pushes this is a harmless no-op.
