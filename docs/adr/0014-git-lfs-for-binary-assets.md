@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (amended by [ADR-0015](0015-git-lfs-opt-in-by-default.md) — LFS now disabled by default)
 
 ## Context
 
