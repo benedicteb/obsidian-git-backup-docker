@@ -578,11 +578,36 @@ log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf}"
 SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data}"
 
+# Normalize: strip whitespace around commas (users may write "image, audio")
+SYNC_FILE_TYPES="$(printf '%s' "${SYNC_FILE_TYPES}" | tr -d ' ')"
+SYNC_CONFIGS="$(printf '%s' "${SYNC_CONFIGS}" | tr -d ' ')"
+
+# Validate file types
+for _type in $(printf '%s' "${SYNC_FILE_TYPES}" | tr ',' ' '); do
+  case "${_type}" in
+    image|audio|video|pdf|unsupported) ;;
+    *) log_error "Invalid OBSIDIAN_GIT_SYNC_FILE_TYPES value: '${_type}'"
+       log_error "Valid values: image, audio, video, pdf, unsupported"
+       exit 1 ;;
+  esac
+done
+
+# Validate config categories
+for _cat in $(printf '%s' "${SYNC_CONFIGS}" | tr ',' ' '); do
+  case "${_cat}" in
+    app|appearance|appearance-data|hotkey|core-plugin|core-plugin-data|community-plugin|community-plugin-data) ;;
+    *) log_error "Invalid OBSIDIAN_GIT_SYNC_CONFIGS value: '${_cat}'"
+       log_error "Valid values: app, appearance, appearance-data, hotkey, core-plugin,"
+       log_error "  core-plugin-data, community-plugin, community-plugin-data"
+       exit 1 ;;
+  esac
+done
+
 log "Configuring sync filter settings..."
 log "  File types: ${SYNC_FILE_TYPES}"
 log "  Configs:    ${SYNC_CONFIGS}"
 
-# Build sync-config args
+# Reset $@ for step 9 — must not inherit step 8's --vault/--password args
 set -- --path /vault
 
 # --file-types: which attachment types to sync (image, audio, video, pdf, unsupported)
@@ -591,8 +616,12 @@ set -- "$@" --file-types "${SYNC_FILE_TYPES}"
 # --configs: which .obsidian config categories to sync
 set -- "$@" --configs "${SYNC_CONFIGS}"
 
-config_output="$(run_as_user env OBSIDIAN_AUTH_TOKEN="${OBSIDIAN_AUTH_TOKEN}" \
-  ob sync-config "$@" 2>&1)" \
+# ob sync-config is a purely local config file operation — no auth token
+# needed. But run as obsidian user so config files keep correct ownership.
+# Redirect stdin from /dev/null to prevent hanging on interactive prompts
+# (same pattern as step 8's ob sync-setup call).
+unset config_exit
+config_output="$(run_as_user ob sync-config "$@" < /dev/null 2>&1)" \
   || config_exit=$?
 
 if [ "${config_exit:-0}" -ne 0 ]; then
@@ -600,6 +629,10 @@ if [ "${config_exit:-0}" -ne 0 ]; then
   if [ -n "${config_output:-}" ]; then
     log_error "ob output: ${config_output}"
   fi
+  log_error "Check OBSIDIAN_GIT_SYNC_FILE_TYPES and OBSIDIAN_GIT_SYNC_CONFIGS for invalid values."
+  log_error "Valid file types: image, audio, video, pdf, unsupported"
+  log_error "Valid configs: app, appearance, appearance-data, hotkey, core-plugin,"
+  log_error "  core-plugin-data, community-plugin, community-plugin-data"
   exit 1
 fi
 
