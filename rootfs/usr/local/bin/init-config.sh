@@ -316,7 +316,10 @@ ${lfs_lines}${LFS_MARKER_END}"
     printf '\n%s\n' "${LFS_MANAGED_BLOCK}" >> "${GITATTRIBUTES}"
   fi
 
-  chown obsidian:obsidian "${GITATTRIBUTES}"
+  # NOTE: On macOS, chown on bind-mounted files may fail if PUID doesn't
+  # match the host file owner (see ADR-0002). Warn instead of aborting.
+  chown obsidian:obsidian "${GITATTRIBUTES}" 2>/dev/null || \
+    log "Warning: could not chown ${GITATTRIBUTES}. On macOS, ensure PUID matches the file owner."
 
   # Count tracked extensions for log output
   ext_count=0
