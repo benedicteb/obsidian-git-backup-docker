@@ -560,4 +560,53 @@ if [ -n "${ob_output:-}" ]; then
 fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
+
+# ---------------------------------------------------------------------------
+# 9. Configure sync file types and settings
+#
+# IMPORTANT: ob sync-setup does NOT set allowTypes or allowSpecialFiles in
+# the stored config. When ob sync loads the config, it passes the missing
+# values through: t.allowTypes || [] → init(e || K). Because empty arrays
+# are truthy in JavaScript, [] || K evaluates to [] (not K), resulting in
+# an empty Set — no binary file types are synced.
+#
+# We fix this by explicitly calling ob sync-config after setup to set the
+# file types and config categories. This writes the values to the stored
+# config so the || [] fallback receives actual values.
+# ---------------------------------------------------------------------------
+SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf}"
+SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data}"
+
+log "Configuring sync filter settings..."
+log "  File types: ${SYNC_FILE_TYPES}"
+log "  Configs:    ${SYNC_CONFIGS}"
+
+# Build sync-config args
+set -- --path /vault
+
+# --file-types: which attachment types to sync (image, audio, video, pdf, unsupported)
+set -- "$@" --file-types "${SYNC_FILE_TYPES}"
+
+# --configs: which .obsidian config categories to sync
+set -- "$@" --configs "${SYNC_CONFIGS}"
+
+config_output="$(run_as_user env OBSIDIAN_AUTH_TOKEN="${OBSIDIAN_AUTH_TOKEN}" \
+  ob sync-config "$@" 2>&1)" \
+  || config_exit=$?
+
+if [ "${config_exit:-0}" -ne 0 ]; then
+  log_error "ob sync-config failed (exit code: ${config_exit:-?})"
+  if [ -n "${config_output:-}" ]; then
+    log_error "ob output: ${config_output}"
+  fi
+  exit 1
+fi
+
+# Show sync-config output
+if [ -n "${config_output:-}" ]; then
+  echo "${config_output}" | while IFS= read -r line; do
+    log "ob: ${line}"
+  done
+fi
+
 log "Initialization complete"
