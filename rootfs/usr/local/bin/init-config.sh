@@ -217,7 +217,7 @@ log "Git configured (user: ${OBSIDIAN_GIT_USER_NAME}, branch: ${OBSIDIAN_GIT_BRA
 # .gitignore (step 7) to allow updates on image upgrades while
 # preserving user-added entries.
 # ---------------------------------------------------------------------------
-OBSIDIAN_GIT_LFS_ENABLED="${OBSIDIAN_GIT_LFS_ENABLED:-true}"
+OBSIDIAN_GIT_LFS_ENABLED="${OBSIDIAN_GIT_LFS_ENABLED:-false}"
 
 if [ "${OBSIDIAN_GIT_LFS_ENABLED}" = "true" ]; then
   log "Git LFS enabled — initializing..."
