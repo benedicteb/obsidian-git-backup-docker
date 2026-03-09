@@ -137,9 +137,9 @@ ENV PGID=1000
 # from the remote to pick up changes pushed from other sources. Set to 0
 # to disable periodic pulling (only pull before each push).
 #
-# Minimum: 10 (when enabled). Default: 300 (5 minutes).
+# Minimum: 10 (when enabled). Default: 3600 (1 hour).
 # ---------------------------------------------------------------------------
-ENV OBSIDIAN_GIT_PULL_INTERVAL=300
+ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 
 # ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)

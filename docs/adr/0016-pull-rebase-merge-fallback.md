@@ -98,8 +98,8 @@ git history and can be recovered from the merge commit's remote parent.
 
 ### Periodic pull: integrated via read timeout (option 2)
 
-A new `OBSIDIAN_GIT_PULL_INTERVAL` environment variable (default: 300
-seconds / 5 minutes) controls how often the watcher checks the remote
+A new `OBSIDIAN_GIT_PULL_INTERVAL` environment variable (default: 3600
+seconds / 1 hour) controls how often the watcher checks the remote
 for changes when no local file events have occurred.
 
 Implementation:
@@ -154,5 +154,5 @@ almost instantly (< 2 seconds).
   misdetect a timeout as EOF. The minimum PULL_INTERVAL of 10 seconds
   provides a large safety margin.
 - The periodic pull adds network traffic (one `git fetch` per interval).
-  The default 5-minute interval is conservative. Users on metered
+  The default 1-hour interval is conservative. Users on metered
   connections or very slow networks can increase it or set it to 0.

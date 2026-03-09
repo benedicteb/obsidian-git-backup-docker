@@ -17,7 +17,7 @@
   <Beta>true</Beta>
   <Changes>
 ### 2026-03-09
-- Periodic remote pull (OBSIDIAN_GIT_PULL_INTERVAL, default 5 minutes)
+- Periodic remote pull (OBSIDIAN_GIT_PULL_INTERVAL, default 1 hour)
 - Improved git conflict handling (rebase-first, merge fallback)
 - Fixed shutdown commit not firing (FIFO replaces pipe subshell)
 ### 2026-03-03
@@ -37,7 +37,7 @@
   <Config Name="Git Author Email" Target="OBSIDIAN_GIT_USER_EMAIL" Default="obsidian-git-backup@local" Mode="" Description="Email used for git commits." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Git Branch" Target="OBSIDIAN_GIT_BRANCH" Default="main" Mode="" Description="Git branch to push to. Must already exist on the remote." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Debounce Seconds" Target="OBSIDIAN_GIT_DEBOUNCE_SECS" Default="30" Mode="" Description="Seconds of filesystem quiet before committing. For large vaults, consider 60-120." Type="Variable" Display="advanced" Required="false" Mask="false"/>
-  <Config Name="Pull Interval" Target="OBSIDIAN_GIT_PULL_INTERVAL" Default="300" Mode="" Description="How often (seconds) to pull remote changes when no local files have changed. Set to 0 to pull only before each push. Minimum 10 when enabled." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Pull Interval" Target="OBSIDIAN_GIT_PULL_INTERVAL" Default="3600" Mode="" Description="How often (seconds) to pull remote changes when no local files have changed. Set to 0 to pull only before each push. Minimum 10 when enabled." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Git LFS Enabled" Target="OBSIDIAN_GIT_LFS_ENABLED" Default="false" Mode="" Description="Store binary files (images, PDFs, videos) via Git LFS. Requires LFS support on your git remote (GitHub, GitLab, Gitea all support it). Set to true to enable." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Git LFS Extensions" Target="OBSIDIAN_GIT_LFS_EXTENSIONS" Default="png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf" Mode="" Description="Comma-separated file extensions tracked by Git LFS. Only used when LFS is enabled." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Leave at 99 unless you know you need a different UID." Type="Variable" Display="advanced" Required="false" Mask="false"/>

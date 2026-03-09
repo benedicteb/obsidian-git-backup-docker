@@ -23,7 +23,7 @@ LOG_TAG="git-watcher"
 # Configuration (from environment, with defaults)
 # ---------------------------------------------------------------------------
 DEBOUNCE="${OBSIDIAN_GIT_DEBOUNCE_SECS:-30}"
-PULL_INTERVAL="${OBSIDIAN_GIT_PULL_INTERVAL:-300}"
+PULL_INTERVAL="${OBSIDIAN_GIT_PULL_INTERVAL:-3600}"
 VAULT="/vault"
 BRANCH="${OBSIDIAN_GIT_BRANCH:-main}"
 
