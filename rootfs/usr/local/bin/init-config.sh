@@ -249,10 +249,16 @@ if [ ! -f "${GITIGNORE}" ]; then
 elif grep -q "${MARKER_START}" "${GITIGNORE}" 2>/dev/null; then
   # Replace existing managed block (supports image upgrades)
   log "Updating vault .gitignore managed entries..."
-  # Use a temp file for atomic replacement
-  tmp="$(mktemp)"
+  # Create temp files in the same directory as the target for atomic
+  # rename(2) — /tmp and /vault may be different filesystems.
+  tmp="$(mktemp "${GITIGNORE}.XXXXXX")"
+  tmp2="$(mktemp "${GITIGNORE}.XXXXXX")"
+  trap 'rm -f "${tmp}" "${tmp2}"' EXIT
+  # Extract user content (everything outside the markers).
+  # The || [ -n "${line}" ] handles files without a trailing newline —
+  # without it, read returns non-zero at EOF and set -eu kills the script.
   in_block=false
-  while IFS= read -r line; do
+  while IFS= read -r line || [ -n "${line}" ]; do
     case "${line}" in
       "${MARKER_START}")
         in_block=true
@@ -271,7 +277,6 @@ elif grep -q "${MARKER_START}" "${GITIGNORE}" 2>/dev/null; then
   # accumulation across container restarts. Without this, each restart
   # adds one blank line: the \n separator from the previous run is kept
   # as "user content", then a new \n separator is added.
-  tmp2="$(mktemp)"
   awk '
     { lines[NR] = $0 }
     END {
@@ -281,15 +286,19 @@ elif grep -q "${MARKER_START}" "${GITIGNORE}" 2>/dev/null; then
     }
   ' "${tmp}" > "${tmp2}"
   mv "${tmp2}" "${tmp}"
-  # Append managed block. Add a blank line separator only if there is
-  # user content above (avoids a leading blank line when the file
-  # contains only the managed block).
+  # Invariant: the file on disk will be exactly:
+  #   {user content, trailing blank lines stripped}
+  #   {blank line separator}   <- only if user content is non-empty
+  #   {managed block}
+  # This ensures the block can be re-processed on every restart
+  # without accumulating blank lines.
   if [ -s "${tmp}" ]; then
     printf '\n%s\n' "${MANAGED_BLOCK}" >> "${tmp}"
   else
     printf '%s\n' "${MANAGED_BLOCK}" > "${tmp}"
   fi
   mv "${tmp}" "${GITIGNORE}"
+  trap - EXIT
 else
   log "Appending managed entries to vault .gitignore..."
   printf '\n%s\n' "${MANAGED_BLOCK}" >> "${GITIGNORE}"
