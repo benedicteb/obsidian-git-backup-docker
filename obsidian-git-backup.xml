@@ -15,18 +15,6 @@
   <Icon>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/img/obsidian-git-backup.png</Icon>
   <TemplateURL>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml</TemplateURL>
   <Beta>true</Beta>
-  <Changes>
-### 2026-03-09
-- Periodic remote pull (OBSIDIAN_GIT_PULL_INTERVAL, default 1 hour)
-- Improved git conflict handling (rebase-first, merge fallback)
-- Fixed shutdown commit not firing (FIFO replaces pipe subshell)
-### 2026-03-03
-- Initial Unraid CA template release
-- Continuous Obsidian Sync via obsidian-headless
-- Filesystem-event-driven git commits (no polling)
-- Automatic SSH key generation
-- E2E encrypted vault support
-  </Changes>
   <Config Name="Obsidian Auth Token" Target="OBSIDIAN_AUTH_TOKEN" Default="" Mode="" Description="Your Obsidian auth token from 'ob login'. Grants read access to all your Obsidian Sync vaults — treat like a password." Type="Variable" Display="always" Required="true" Mask="true"/>
   <Config Name="Vault Name" Target="OBSIDIAN_GIT_VAULT_NAME" Default="" Mode="" Description="The name of your Obsidian vault exactly as shown in the Obsidian app (case-sensitive). Run 'ob sync-list-remote' to list available vaults." Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Git Remote URL" Target="OBSIDIAN_GIT_REMOTE_URL" Default="" Mode="" Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git" Type="Variable" Display="always" Required="true" Mask="false"/>
