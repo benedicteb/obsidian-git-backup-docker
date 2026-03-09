@@ -418,9 +418,9 @@ again with:
 - Different vault path (e.g., `/mnt/user/appdata/obsidian_git_backup/vault-work`)
 - A different vault name and git remote URL
 
-Each container must have its own config path (e.g.,
-`/mnt/user/appdata/obsidian_git_backup/config-work`) since SSH keys and
-device state would conflict if shared.
+Containers can share the same config path — it only contains the SSH key
+and SSH settings, which are safe to share. Only the vault path must be
+unique per container.
 
 Each container counts as one device on your Obsidian Sync plan — check
 your plan's device limit at [obsidian.md/account](https://obsidian.md/account).
