@@ -30,12 +30,14 @@ ARG TARGETARCH
 # ---------------------------------------------------------------------------
 # Install system dependencies
 #
+# git-lfs   — Git Large File Storage for binary assets (images, PDFs, etc.)
 # su-exec   — lightweight privilege de-escalation (Alpine alternative to gosu)
 # shadow    — usermod/groupmod for runtime UID/GID remapping
 # xz        — only needed for extracting s6-overlay tarballs (removed after)
 # ---------------------------------------------------------------------------
 RUN apk add --no-cache \
     git \
+    git-lfs \
     openssh-client \
     inotify-tools \
     findutils \
