@@ -99,14 +99,18 @@ do_pull() {
   fi
 
   # Strategy 1: Rebase (preferred — keeps linear history)
-  # --allow-unrelated-histories handles independently initialized repos
+  # --allow-unrelated-histories handles independently initialized repos.
+  # The exit code of the command substitution is tested via && — this is
+  # correct in BusyBox ash (the assignment propagates the subcommand's
+  # exit code to the && test).
   pull_output="$(git -C "${VAULT}" pull --rebase --allow-unrelated-histories origin "${BRANCH}" 2>&1)" && {
     log "Pulled from origin/${BRANCH} (rebase)"
     return 0
   }
 
-  log_error "git pull --rebase failed:"
-  log_error "${pull_output}"
+  # Rebase failed — log at info level since we have a fallback.
+  # Only escalate to log_error if both strategies fail.
+  log "Rebase failed, attempting merge fallback..."
 
   # Abort the failed rebase to restore the working tree
   git -C "${VAULT}" rebase --abort 2>/dev/null || true
@@ -115,14 +119,17 @@ do_pull() {
   # Creates a merge commit but preserves ALL history from both sides.
   # -X ours: for conflicting hunks, keep the local (Obsidian) version.
   # Non-conflicting remote changes are still merged in normally.
-  log "Retrying with merge strategy (local content wins conflicts)..."
   merge_output="$(git -C "${VAULT}" pull --no-rebase --allow-unrelated-histories -X ours origin "${BRANCH}" 2>&1)" && {
     log "Pulled from origin/${BRANCH} (merge, local wins)"
+    log_error "WARNING: Merge fallback was used — remote changes were merged with local"
+    log_error "content taking priority for any conflicts. Files from the remote may"
+    log_error "have appeared in your vault and will be synced to all Obsidian devices."
+    log_error "Review /vault for unexpected files if the remote was independently initialized."
     return 0
   }
 
   # Both strategies failed — this is unusual (e.g., network error, lock file)
-  log_error "git pull merge fallback also failed:"
+  log_error "git pull failed (both rebase and merge strategies):"
   log_error "${merge_output}"
   log_error "Local commits are safe. Pull will be retried on the next cycle."
   return 1
