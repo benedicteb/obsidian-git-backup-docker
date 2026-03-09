@@ -575,8 +575,8 @@ log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 # file types and config categories. This writes the values to the stored
 # config so the || [] fallback receives actual values.
 # ---------------------------------------------------------------------------
-SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf}"
-SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data}"
+SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf,unsupported}"
+SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data}"
 
 # Normalize: strip whitespace around commas (users may write "image, audio")
 SYNC_FILE_TYPES="$(printf '%s' "${SYNC_FILE_TYPES}" | tr -d ' ')"
