@@ -95,14 +95,14 @@ Implementation:
 
 - **New environment variables**:
   - `OBSIDIAN_GIT_SYNC_FILE_TYPES` — comma-separated list of attachment
-    types. Default: `image,audio,video,pdf` (matches Obsidian's intended
-    defaults). Valid values: `image`, `audio`, `video`, `pdf`,
-    `unsupported`.
+    types. Default: `image,audio,video,pdf,unsupported` (everything).
+    Valid values: `image`, `audio`, `video`, `pdf`, `unsupported`.
   - `OBSIDIAN_GIT_SYNC_CONFIGS` — comma-separated list of config
-    categories. Default: `app,appearance,appearance-data,hotkey,
-    core-plugin,core-plugin-data` (matches Obsidian's intended defaults).
-    Does **not** include `community-plugin` or `community-plugin-data`
-    by default, matching the Obsidian desktop app's behavior.
+    categories. Default: all 8 categories (`app,appearance,
+    appearance-data,hotkey,core-plugin,core-plugin-data,
+    community-plugin,community-plugin-data`). This is more aggressive
+    than Obsidian desktop's default (which excludes community plugins)
+    but appropriate for a backup tool where completeness is paramount.
 
 - **Idempotent**: `ob sync-config` updates the stored config in place.
   Running it on every container start is safe and ensures the filter
