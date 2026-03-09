@@ -131,6 +131,17 @@ ENV PUID=1000
 ENV PGID=1000
 
 # ---------------------------------------------------------------------------
+# Git pull interval — how often to check the remote for changes (seconds)
+#
+# When no local files have changed for this many seconds, the watcher pulls
+# from the remote to pick up changes pushed from other sources. Set to 0
+# to disable periodic pulling (only pull before each push).
+#
+# Minimum: 10 (when enabled). Default: 300 (5 minutes).
+# ---------------------------------------------------------------------------
+ENV OBSIDIAN_GIT_PULL_INTERVAL=300
+
+# ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
 #
 # When enabled, binary files (images, PDFs, videos, audio) are stored via
