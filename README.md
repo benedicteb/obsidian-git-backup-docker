@@ -333,6 +333,11 @@ fast to clone, even if your vault contains large attachments.
 Forgejo, and Bitbucket all support LFS. Check your provider's documentation
 for storage limits.
 
+> **GitHub Free accounts** include 1 GB LFS storage and 1 GB/month bandwidth.
+> Vaults with many large images or PDFs may exceed this. Check your
+> [GitHub billing settings](https://github.com/settings/billing) if pushes
+> fail with quota errors.
+
 ### Default tracked extensions
 
 The default extension list covers common binary formats found in Obsidian
@@ -357,6 +362,16 @@ vaults:
 
 Override the default list by setting `OBSIDIAN_GIT_LFS_EXTENSIONS` to a
 comma-separated list of file extensions (without dots):
+
+> **Warning:** This **replaces** the entire default list — it is not additive.
+> To add one extension, copy the full default list and append yours.
+
+```sh
+# Add .excalidraw to the defaults (must copy full list + append)
+OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf,excalidraw
+```
+
+To track *only* specific formats:
 
 ```sh
 # Only track images and PDFs
