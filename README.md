@@ -340,11 +340,18 @@ vaults:
 
 | Category | Extensions |
 |---|---|
-| Images | `png`, `jpg`, `jpeg`, `gif`, `bmp`, `svg`, `webp`, `ico`, `tif`, `tiff` |
+| Images | `png`, `jpg`, `jpeg`, `gif`, `bmp`, `webp`, `tif`, `tiff` |
 | Video | `mp4`, `mov`, `avi`, `mkv`, `webm` |
 | Audio | `mp3`, `wav`, `ogg`, `flac`, `m4a`, `aac` |
 | Documents | `pdf`, `doc`, `docx`, `xls`, `xlsx`, `ppt`, `pptx` |
 | Archives | `zip`, `tar`, `gz`, `7z`, `rar` |
+| Fonts | `woff`, `woff2`, `ttf`, `otf` |
+
+> **Note:** SVG files are *not* tracked by LFS by default because they are
+> XML text — they diff meaningfully and compress well in git. Similarly,
+> `.excalidraw` and `.canvas` files are JSON text and should stay in git.
+> If you need to add SVG to LFS (e.g., for very large auto-exported SVGs),
+> include `svg` in your `OBSIDIAN_GIT_LFS_EXTENSIONS` override.
 
 ### Customizing tracked extensions
 

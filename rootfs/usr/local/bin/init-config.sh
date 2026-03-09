@@ -235,7 +235,7 @@ if [ "${OBSIDIAN_GIT_LFS_ENABLED}" = "true" ]; then
   done
 
   # Build the .gitattributes managed block from the extensions list
-  OBSIDIAN_GIT_LFS_EXTENSIONS="${OBSIDIAN_GIT_LFS_EXTENSIONS:-png,jpg,jpeg,gif,bmp,svg,webp,ico,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,zip,tar,gz,7z,rar,doc,docx,xls,xlsx,ppt,pptx}"
+  OBSIDIAN_GIT_LFS_EXTENSIONS="${OBSIDIAN_GIT_LFS_EXTENSIONS:-png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf}"
   GITATTRIBUTES="/vault/.gitattributes"
   LFS_MARKER_START="# --- obsidian-git-backup LFS managed entries ---"
   LFS_MARKER_END="# --- end obsidian-git-backup LFS ---"

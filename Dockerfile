@@ -140,8 +140,8 @@ ENV PGID=1000
 # OBSIDIAN_GIT_LFS_EXTENSIONS overrides the default list of file extensions
 # tracked by LFS. Set to a comma-separated list (e.g., "png,jpg,pdf").
 # ---------------------------------------------------------------------------
-ENV OBSIDIAN_GIT_LFS_ENABLED=false
-ENV OBSIDIAN_GIT_LFS_EXTENSIONS="png,jpg,jpeg,gif,bmp,svg,webp,ico,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,zip,tar,gz,7z,rar,doc,docx,xls,xlsx,ppt,pptx"
+ENV OBSIDIAN_GIT_LFS_ENABLED=true
+ENV OBSIDIAN_GIT_LFS_EXTENSIONS="png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf"
 
 # ---------------------------------------------------------------------------
 # Volumes
