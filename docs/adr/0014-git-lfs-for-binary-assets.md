@@ -7,8 +7,8 @@ Accepted
 ## Context
 
 Obsidian vaults frequently contain binary attachments — images (PNG,
-JPEG, SVG), PDFs, audio recordings, videos, and office documents.
-When these files are committed directly to a git repository:
+JPEG), PDFs, audio recordings, videos, and office documents. When
+these files are committed directly to a git repository:
 
 1. **Repository bloat.** Binary files don't compress or delta-encode
    well. A vault with 200 MB of images produces a 200 MB+ `.git`
@@ -66,21 +66,44 @@ Implementation details:
   `~/.gitconfig`, keeping the setup repo-scoped and avoiding
   interference with other potential git operations.
 
+- **LFS pull after clone**: `git lfs pull` runs after LFS
+  initialization to ensure the working tree contains real binary
+  content, not LFS pointer stubs. This is critical: if
+  obsidian-headless synced on top of pointer files, it would push
+  those stubs to Obsidian Sync, corrupting binary files on all
+  connected devices.
+
 - **Extension tracking**: A managed `.gitattributes` block (using the
   same marker-based pattern as `.gitignore`) maps file extensions to
   LFS tracking rules (`filter=lfs diff=lfs merge=lfs -text`).
 
 - **Default extensions**: The default list covers common Obsidian
-  vault attachments:
-  - Images: png, jpg, jpeg, gif, bmp, svg, webp, ico, tif, tiff
+  vault binary attachments:
+  - Images: png, jpg, jpeg, gif, bmp, webp, tif, tiff
   - Video: mp4, mov, avi, mkv, webm
   - Audio: mp3, wav, ogg, flac, m4a, aac
   - Documents: pdf, doc, docx, xls, xlsx, ppt, pptx
   - Archives: zip, tar, gz, 7z, rar
+  - Fonts: woff, woff2, ttf, otf (used by Obsidian themes)
+
+  Notable exclusions from the default list:
+  - **SVG** — XML text format. Diffs meaningfully, compresses well
+    in git, and renders natively on GitHub. Users with very large
+    auto-exported SVGs can add `svg` via the override.
+  - **Excalidraw** (`.excalidraw`) — JSON text with embedded
+    base64 image data. Despite being large, they delta-compress
+    better as text in git than as opaque blobs in LFS.
+  - **Canvas** (`.canvas`) — Obsidian's native canvas format, JSON
+    text. Should not go into LFS.
 
 - **Override mechanism**: `OBSIDIAN_GIT_LFS_EXTENSIONS` accepts a
   comma-separated list of extensions (with or without leading dots).
   This completely replaces the default list — it is not additive.
+  An additive syntax (e.g., `+excalidraw`) was considered but
+  rejected to avoid parser complexity: the shell parser would need
+  to distinguish prefix characters from literal extension names,
+  and an extension genuinely starting with `+` would become
+  ambiguous.
 
 - **Disable mechanism**: `OBSIDIAN_GIT_LFS_ENABLED=false` skips all
   LFS setup. The `git-lfs` package remains installed but inactive.
@@ -101,7 +124,7 @@ Implementation details:
 - Vaults with binary attachments produce small, fast-cloning git
   repositories by default. No user configuration needed.
 - The extension list is customisable for users with unusual file
-  types (e.g., `.excalidraw` files, custom formats).
+  types via `OBSIDIAN_GIT_LFS_EXTENSIONS`.
 - LFS is fully transparent to the git-watcher — no changes to the
   commit/push logic were needed.
 - Users can disable LFS with a single environment variable if their
@@ -125,5 +148,9 @@ Implementation details:
   large binaries may need a paid plan or self-hosted LFS server.
 - The `OBSIDIAN_GIT_LFS_EXTENSIONS` override replaces the entire
   default list. Users who want to add one extension must copy the
-  full default list and append their addition. An additive syntax
-  (e.g., `+excalidraw`) was considered but rejected for simplicity.
+  full default list and append their addition.
+- `.gitattributes` at the vault root will be synced to all Obsidian
+  devices via Obsidian Sync. It is inert (Obsidian ignores it) but
+  visible in the mobile file explorer. Users running the Obsidian Git
+  plugin on a desktop simultaneously may see minor conflicts with the
+  managed block, which self-resolve on next container restart.
