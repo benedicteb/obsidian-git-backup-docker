@@ -322,7 +322,23 @@ ${lfs_lines}${LFS_MARKER_END}"
     _remaining="${_remaining#*,}"
   done
 
+  # Fetch LFS objects so the working tree contains real file content,
+  # not LFS pointer stubs. This is critical for disaster recovery:
+  # after a fresh git clone, LFS-tracked files are pointer files until
+  # 'git lfs pull' fetches the actual content. If obsidian-headless
+  # starts syncing before this, it would push pointer stubs to Obsidian
+  # Sync, corrupting binary files on all other devices.
+  log "Fetching LFS objects..."
+  if lfs_pull_output="$(run_as_user git -C /vault lfs pull 2>&1)"; then
+    log "LFS objects fetched"
+  else
+    log "Warning: git lfs pull failed (LFS objects may not be available yet)"
+    log "  ${lfs_pull_output}"
+    log "  This is expected on a new repo with no LFS objects."
+  fi
+
   log "Git LFS configured (${ext_count} extensions tracked)"
+  log "Your git remote must support LFS. If pushes fail, set OBSIDIAN_GIT_LFS_ENABLED=false"
 else
   log "Git LFS disabled (OBSIDIAN_GIT_LFS_ENABLED=false)"
 fi
