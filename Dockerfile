@@ -142,6 +142,25 @@ ENV PGID=1000
 ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 
 # ---------------------------------------------------------------------------
+# Obsidian Sync file type and config filtering
+#
+# Controls which file types and .obsidian config categories are synced.
+# These are passed to `ob sync-config` during initialization.
+#
+# OBSIDIAN_GIT_SYNC_FILE_TYPES: Comma-separated list of attachment types.
+#   Valid values: image, audio, video, pdf, unsupported
+#   Default includes all standard types. "unsupported" adds any extension
+#   not recognized by Obsidian (e.g., .blend, .psd).
+#
+# OBSIDIAN_GIT_SYNC_CONFIGS: Comma-separated list of .obsidian categories.
+#   Valid values: app, appearance, appearance-data, hotkey,
+#                 core-plugin, core-plugin-data,
+#                 community-plugin, community-plugin-data
+# ---------------------------------------------------------------------------
+ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf"
+ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data"
+
+# ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
 #
 # When enabled, binary files (images, PDFs, videos, audio) are stored via
