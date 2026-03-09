@@ -229,7 +229,7 @@ You should see:
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
-| `OBSIDIAN_GIT_LFS_ENABLED` | No | `true` | Enable Git LFS for binary files. Set to `false` to disable. |
+| `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Enable Git LFS for binary files. Set to `true` to enable. |
 | `OBSIDIAN_GIT_LFS_EXTENSIONS` | No | *(see below)* | Comma-separated file extensions to track via LFS. |
 | `PUID` | No | `1000` | Your host user ID. Needed for bind mounts — run `id -u` to find it. |
 | `PGID` | No | `1000` | Your host group ID. Needed for bind mounts — run `id -g` to find it. |
@@ -324,14 +324,21 @@ services:
 
 ## Git LFS (Large File Storage)
 
-Git LFS is **enabled by default**. Binary files — images, PDFs, videos,
-audio, and other attachments — are stored via [Git LFS](https://git-lfs.com)
-instead of directly in the git repository. This keeps your repo small and
-fast to clone, even if your vault contains large attachments.
+Git LFS is **disabled by default**. When enabled, binary files — images,
+PDFs, videos, audio, and other attachments — are stored via
+[Git LFS](https://git-lfs.com) instead of directly in the git repository.
+This keeps your repo small and fast to clone, even if your vault contains
+large attachments.
+
+To enable LFS, add to your `.env`:
+
+```sh
+OBSIDIAN_GIT_LFS_ENABLED=true
+```
 
 **Requirements:** Your git remote must support LFS. GitHub, GitLab, Gitea,
-Forgejo, and Bitbucket all support LFS. Check your provider's documentation
-for storage limits.
+Forgejo, and Bitbucket all support LFS. Many self-hosted git servers do not
+have LFS enabled by default — check your provider's documentation.
 
 > **GitHub Free accounts** include 1 GB LFS storage and 1 GB/month bandwidth.
 > Vaults with many large images or PDFs may exceed this. Check your
@@ -376,15 +383,6 @@ To track *only* specific formats:
 ```sh
 # Only track images and PDFs
 OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,pdf
-```
-
-### Disabling LFS
-
-If your git remote doesn't support LFS, or you prefer storing everything
-directly in git:
-
-```sh
-OBSIDIAN_GIT_LFS_ENABLED=false
 ```
 
 ### Migrating an existing repo to LFS
