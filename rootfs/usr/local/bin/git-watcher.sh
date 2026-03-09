@@ -153,7 +153,10 @@ log "Git repository found. Watching for changes..."
 #   cache/               — Obsidian cache (rebuilt automatically)
 #   workspace*.json      — Obsidian workspace state (high churn)
 #   graph.json           — Obsidian graph view state
-#   plugins/*/data.json  — Plugin runtime data (Dataview, etc.)
+#
+# Note: plugin data.json files are NOT excluded here because they
+# contain user settings (Templater, Tasks, etc.) that should be backed
+# up. The vault .gitignore also does not ignore them by default.
 #
 # -m = monitor mode (don't exit after first event)
 # -r = recursive
@@ -165,7 +168,7 @@ log "Git repository found. Watching for changes..."
 # then commit and push.
 
 inotifywait -m -r \
-  --exclude '/\.(git|trash)(/|$)|/\.obsidian/(workspace.*\.json|graph\.json|cache/|plugins/[^/]+/data\.json)' \
+  --exclude '/\.(git|trash)(/|$)|/\.obsidian/(workspace.*\.json|graph\.json|cache/)' \
   -e modify,create,delete,move \
   --format '%w%f' \
   "${VAULT}" |
