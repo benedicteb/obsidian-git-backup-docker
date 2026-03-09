@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>obsidian-git-backup</Name>
+  <Name>obsidian_git_backup</Name>
   <Repository>benedicteb/obsidian-git-backup:latest</Repository>
   <Registry>https://hub.docker.com/r/benedicteb/obsidian-git-backup/</Registry>
   <Network>bridge</Network>
