@@ -23,6 +23,7 @@ LOG_TAG="git-watcher"
 # Configuration (from environment, with defaults)
 # ---------------------------------------------------------------------------
 DEBOUNCE="${OBSIDIAN_GIT_DEBOUNCE_SECS:-30}"
+PULL_INTERVAL="${OBSIDIAN_GIT_PULL_INTERVAL:-300}"
 VAULT="/vault"
 BRANCH="${OBSIDIAN_GIT_BRANCH:-main}"
 
@@ -39,6 +40,21 @@ case "${DEBOUNCE}" in
     exit 1
     ;;
 esac
+
+case "${PULL_INTERVAL}" in
+  ''|*[!0-9]*)
+    log_error "OBSIDIAN_GIT_PULL_INTERVAL must be a non-negative integer, got: '${PULL_INTERVAL}'"
+    exit 1
+    ;;
+esac
+
+# Minimum pull interval is 10 seconds (when enabled). Values 1-9 are too
+# aggressive for a network operation and would cause issues with the
+# EOF-vs-timeout detection in the main loop.
+if [ "${PULL_INTERVAL}" -gt 0 ] && [ "${PULL_INTERVAL}" -lt 10 ]; then
+  log_error "OBSIDIAN_GIT_PULL_INTERVAL must be 0 (disabled) or >= 10, got: '${PULL_INTERVAL}'"
+  exit 1
+fi
 
 # Track consecutive push failures for escalating warnings
 push_failures=0
@@ -176,7 +192,11 @@ trap shutdown TERM INT
 # Main: watch for filesystem events and debounce
 # ---------------------------------------------------------------------------
 log "Starting filesystem watcher on ${VAULT}"
-log "Debounce: ${DEBOUNCE}s | Branch: ${BRANCH}"
+if [ "${PULL_INTERVAL}" -gt 0 ]; then
+  log "Debounce: ${DEBOUNCE}s | Pull interval: ${PULL_INTERVAL}s | Branch: ${BRANCH}"
+else
+  log "Debounce: ${DEBOUNCE}s | Periodic pull: disabled | Branch: ${BRANCH}"
+fi
 
 # Wait for the vault to be ready (git repo must exist)
 while [ ! -d "${VAULT}/.git" ]; do
@@ -215,7 +235,35 @@ inotifywait -m -r \
   -e modify,create,delete,move \
   --format '%w%f' \
   "${VAULT}" |
-while read -r changed_file; do
+while true; do
+  # Wait for the next filesystem event OR a pull-interval timeout.
+  # - If PULL_INTERVAL=0, block until a file event arrives (no periodic pull).
+  # - If PULL_INTERVAL>0, timeout after PULL_INTERVAL seconds of silence to
+  #   pull any remote changes even when no local files have changed.
+  if [ "${PULL_INTERVAL}" -gt 0 ]; then
+    read_start="$(date +%s)"
+    if ! read -t "${PULL_INTERVAL}" -r changed_file; then
+      # read -t returns non-zero on BOTH timeout and EOF (pipe closed).
+      # Distinguish them: a real timeout takes ~PULL_INTERVAL seconds;
+      # an EOF from a closed pipe returns almost instantly (< 2s).
+      read_elapsed=$(( $(date +%s) - read_start ))
+      if [ "${read_elapsed}" -lt 2 ]; then
+        # EOF — inotifywait exited (pipe closed almost immediately)
+        break
+      fi
+      # Timeout — no local changes, but the remote may have advanced.
+      # Pull only (no commit needed since nothing changed locally).
+      log "Pull interval reached (${PULL_INTERVAL}s). Checking remote for changes..."
+      do_pull || log_error "Periodic pull failed (will retry next interval)"
+      continue
+    fi
+  else
+    if ! read -r changed_file; then
+      # EOF — inotifywait exited
+      break
+    fi
+  fi
+
   log "Change detected: ${changed_file}. Waiting ${DEBOUNCE}s for more changes..."
 
   # Debounce: drain events until DEBOUNCE seconds of silence.
