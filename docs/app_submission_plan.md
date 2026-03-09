@@ -10,7 +10,7 @@ the Apps tab search for all Unraid users.
 - GitHub repo: `https://github.com/benedicteb/obsidian-git-backup-docker`
 - CA template XML at repository root (`obsidian-git-backup.xml`)
 - PUID/PGID defaults to 99/100 (Unraid convention)
-- Volume paths default to `/mnt/user/appdata/obsidian_git_backup/`
+- Volume paths default to `/mnt/user/appdata/obsidian-git-backup/`
 - Current install method: `curl` to `/boot/config/plugins/dockerMan/templates/`
 
 ## Template Review Summary
@@ -178,7 +178,7 @@ After acceptance into the official CA index:
 | **Forum support** | Respond to questions in the forum thread within a reasonable time. Abandoned templates get removed from the index. |
 | **Template updates** | When environment variables or volumes change, update the XML. CA's `<TemplateURL>` mechanism propagates updates automatically. |
 | **Docker Hub availability** | The image must remain publicly available. Deleting the image or making the repo private breaks the template for all users. |
-| **Container name frozen** | `obsidian_git_backup` — once indexed, changing the container name confuses existing installs. Treat the name as immutable. |
+| **Container name frozen** | `obsidian-git-backup` — once indexed, changing the container name confuses existing installs. Treat the name as immutable. |
 | **Icon path frozen** | The `<Icon>` URL path must remain stable. Moving or renaming the icon file breaks it for all installed instances. |
 
 ---

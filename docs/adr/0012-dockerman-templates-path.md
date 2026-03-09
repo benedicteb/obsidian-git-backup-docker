@@ -70,7 +70,7 @@ Implementation:
   ```
 
 - **Access via Docker tab**: Users go to Docker tab > Add Container >
-  select `obsidian_git_backup` from the template dropdown.
+  select `obsidian-git-backup` from the template dropdown.
 
 - **No CA dependency**: The Docker Manager templates path is part of
   Unraid's core Docker support, not the CA plugin. This works even if
@@ -83,8 +83,12 @@ Implementation:
 
 Additional XML fixes applied during this investigation:
 
-- `<Name>` changed from `obsidian-git-backup` to `obsidian_git_backup`
-  (Unraid 7.x may reject hyphens in container names).
+- ~~`<Name>` changed from `obsidian-git-backup` to `obsidian_git_backup`
+  (Unraid 7.x may reject hyphens in container names).~~ Reverted —
+  hyphens work fine on Unraid 7.x. The blank form issue was caused by
+  XML formatting bugs (multi-line Config tags, `&#xD;` entities), not
+  the container name. Hyphens are used by virtually all major CA
+  templates (linuxserver, ich777, hotio).
 - Added explicit `<WebUI/>` element.
 - Trimmed `<Requires>` to hard prerequisites only.
 - Changed Vault Storage from `Required="true"` to `Required="false"`.

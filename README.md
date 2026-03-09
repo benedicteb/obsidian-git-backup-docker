@@ -385,8 +385,8 @@ The template form includes all required and optional settings:
 | Vault Name | Yes | Exactly as shown in the Obsidian app (case-sensitive). Run `ob sync-list-remote` to list vaults. You can also use the vault UUID. |
 | Git Remote URL | Yes | SSH URL, e.g. `git@github.com:user/vault-backup.git` |
 | E2EE Password | If encrypted | Only for E2E encrypted vaults. Your git backup will contain **plaintext** notes — secure your git remote accordingly. |
-| Config Storage | Yes | Default: `/mnt/user/appdata/obsidian_git_backup/config` |
-| Vault Storage | Recommended | Default: `/mnt/user/appdata/obsidian_git_backup/vault` |
+| Config Storage | Yes | Default: `/mnt/user/appdata/obsidian-git-backup/config` |
+| Vault Storage | Recommended | Default: `/mnt/user/appdata/obsidian-git-backup/vault` |
 
 Additional settings (git author, branch, debounce period) are under
 **Advanced View**.
@@ -414,8 +414,8 @@ across array start/stop cycles.
 
 Run one container per vault. To add another vault, install the template
 again with:
-- A different container name (e.g., `obsidian_git_backup_work`)
-- Different vault path (e.g., `/mnt/user/appdata/obsidian_git_backup/vault-work`)
+- A different container name (e.g., `obsidian-git-backup-work`)
+- Different vault path (e.g., `/mnt/user/appdata/obsidian-git-backup/vault-work`)
 - A different vault name and git remote URL
 
 Containers can share the same config path — it only contains the SSH key
