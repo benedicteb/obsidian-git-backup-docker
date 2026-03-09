@@ -4,6 +4,7 @@
   <Repository>benedicteb/obsidian-git-backup:latest</Repository>
   <Registry>https://hub.docker.com/r/benedicteb/obsidian-git-backup/</Registry>
   <Network>bridge</Network>
+  <WebUI/>
   <Privileged>false</Privileged>
   <Support>https://github.com/benedicteb/obsidian-git-backup-docker/issues</Support>
   <Project>https://github.com/benedicteb/obsidian-git-backup-docker/</Project>
