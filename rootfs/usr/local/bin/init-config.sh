@@ -267,8 +267,28 @@ elif grep -q "${MARKER_START}" "${GITIGNORE}" 2>/dev/null; then
         ;;
     esac
   done < "${GITIGNORE}" > "${tmp}"
-  # Append fresh managed block
-  printf '\n%s\n' "${MANAGED_BLOCK}" >> "${tmp}"
+  # Strip trailing blank lines from user content to prevent blank-line
+  # accumulation across container restarts. Without this, each restart
+  # adds one blank line: the \n separator from the previous run is kept
+  # as "user content", then a new \n separator is added.
+  tmp2="$(mktemp)"
+  awk '
+    { lines[NR] = $0 }
+    END {
+      last = NR
+      while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--
+      for (i = 1; i <= last; i++) print lines[i]
+    }
+  ' "${tmp}" > "${tmp2}"
+  mv "${tmp2}" "${tmp}"
+  # Append managed block. Add a blank line separator only if there is
+  # user content above (avoids a leading blank line when the file
+  # contains only the managed block).
+  if [ -s "${tmp}" ]; then
+    printf '\n%s\n' "${MANAGED_BLOCK}" >> "${tmp}"
+  else
+    printf '%s\n' "${MANAGED_BLOCK}" > "${tmp}"
+  fi
   mv "${tmp}" "${GITIGNORE}"
 else
   log "Appending managed entries to vault .gitignore..."
