@@ -351,6 +351,40 @@ ${lfs_lines}${LFS_MARKER_END}"
   log "Your git remote must support LFS. If pushes fail, set OBSIDIAN_GIT_LFS_ENABLED=false"
 else
   log "Git LFS disabled (OBSIDIAN_GIT_LFS_ENABLED=false)"
+
+  # Safety guard: detect LFS pointer files in the vault.
+  # If this repo previously used LFS (or was cloned from an LFS-enabled
+  # remote), the working tree may contain 130-byte pointer stubs instead
+  # of real file content. If obsidian-headless syncs these stubs, it will
+  # push them to Obsidian Sync, corrupting binary files on all devices.
+  #
+  # Pointer files start with: version https://git-lfs.github.com/spec/v1
+  # We check a sample of binary-extension files for this signature.
+  pointer_count=0
+  if [ -d "/vault" ]; then
+    pointer_count="$(find /vault -maxdepth 5 -type f \( \
+      -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' \
+      -o -name '*.pdf' -o -name '*.mp4' -o -name '*.mp3' -o -name '*.webp' \
+      \) -size -200c -exec grep -l 'version https://git-lfs.github.com/spec' {} + 2>/dev/null \
+      | wc -l)" || pointer_count=0
+    # Trim whitespace from wc output (BusyBox wc may pad)
+    pointer_count="$(echo "${pointer_count}" | tr -d ' ')"
+  fi
+
+  if [ "${pointer_count:-0}" -gt 0 ]; then
+    log_error "CRITICAL: ${pointer_count} LFS pointer file(s) detected in /vault!"
+    log_error "These are small stub files (~130 bytes), not real images/PDFs."
+    log_error "If obsidian-headless syncs them to Obsidian Sync, it will"
+    log_error "corrupt binary files on ALL your other devices."
+    log_error ""
+    log_error "This typically happens when upgrading from a version that had"
+    log_error "LFS enabled by default. To fix this, add to your .env:"
+    log_error ""
+    log_error "    OBSIDIAN_GIT_LFS_ENABLED=true"
+    log_error ""
+    log_error "Then restart the container."
+    exit 1
+  fi
 fi
 
 # ---------------------------------------------------------------------------
