@@ -83,7 +83,7 @@ RUN apk add --no-cache --virtual .build-deps \
       python3 \
       make \
       g++ && \
-    npm install -g obsidian-headless@0.0.4 && \
+    npm install -g obsidian-headless@0.0.6 && \
     npm cache clean --force && \
     apk del .build-deps
 
