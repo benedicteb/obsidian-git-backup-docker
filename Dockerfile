@@ -147,10 +147,10 @@ ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 # Controls which file types and .obsidian config categories are synced.
 # These are passed to `ob sync-config` during initialization.
 #
-# OBSIDIAN_GIT_SYNC_FILE_TYPES: Comma-separated list of attachment types.
+# OBSIDIAN_GIT_SYNC_FILE_TYPES: Which attachment types obsidian-headless downloads.
+#   This controls Obsidian Sync, not git storage (see OBSIDIAN_GIT_LFS_EXTENSIONS).
 #   Valid values: image, audio, video, pdf, unsupported
-#   Default includes all standard types. "unsupported" adds any extension
-#   not recognized by Obsidian (e.g., .blend, .psd).
+#   "unsupported" = file extensions Obsidian doesn't natively recognize (.blend, .psd, etc.)
 #
 # OBSIDIAN_GIT_SYNC_CONFIGS: Comma-separated list of .obsidian categories.
 #   Valid values: app, appearance, appearance-data, hotkey,
