@@ -345,40 +345,31 @@ You also need a git repository with SSH access (e.g., a private GitHub repo).
 
 ### Add the Template
 
-> **Prerequisite:** The
-> [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
-> plugin must already be installed.
-
 This template is not yet in the official CA search index. To install it,
-download the template XML to your Unraid flash drive as a CA private
-repository:
+download the template XML to Unraid's Docker Manager templates directory:
 
 1. **Open a terminal:** In the Unraid WebGUI, click the **terminal icon**
    in the top-right navigation bar (or connect via SSH).
 
-2. **Run these two commands** (paste them one at a time):
+2. **Run this command:**
 
    ```sh
-   mkdir -p /boot/config/plugins/community.applications/private/obsidian-git-backup
-   ```
-
-   ```sh
-   curl -fsSL -o /boot/config/plugins/community.applications/private/obsidian-git-backup/obsidian-git-backup.xml \
+   curl -fsSL -o /boot/config/plugins/dockerMan/templates/obsidian-git-backup.xml \
      https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml
    ```
 
    You should see no output on success. If you see an error, check your
    internet connection and try again.
 
-3. Go to the **Apps** tab and click the **refresh** icon in the top-right
-   of the Apps page to force CA to re-scan. A browser refresh alone is not
-   sufficient.
+3. Go to the **Docker** tab, click **Add Container** at the bottom of
+   the page.
 
-4. Search for **obsidian-git-backup** — it appears under the **Private**
-   category. Click **Install**.
+4. In the **Template** dropdown at the top of the form, select
+   **obsidian\_git\_backup**. The form will populate with all the
+   configuration fields.
 
 > To update the template later (e.g., after a new release adds fields),
-> re-run the `curl` command above, then refresh the Apps tab.
+> re-run the `curl` command above.
 
 ### Configure the Container
 
@@ -396,7 +387,7 @@ The template form includes all required and optional settings:
 | Git Remote URL | Yes | SSH URL, e.g. `git@github.com:user/vault-backup.git` |
 | E2EE Password | If encrypted | Only for E2E encrypted vaults. Your git backup will contain **plaintext** notes — secure your git remote accordingly. |
 | Config Storage | Yes | Default: `/mnt/user/appdata/obsidian-git-backup/config` |
-| Vault Storage | Yes | Default: `/mnt/user/appdata/obsidian-git-backup/vault` |
+| Vault Storage | Recommended | Default: `/mnt/user/appdata/obsidian-git-backup/vault` |
 
 Additional settings (git author, branch, debounce period) are under
 **Advanced View**.
