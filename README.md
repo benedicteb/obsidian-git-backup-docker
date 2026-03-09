@@ -321,12 +321,16 @@ services:
 
 ## Unraid Installation
 
-This image is available as an Unraid
-[Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
-template. The template is currently in **beta** — CA will show a warning
-before install, which is expected. Please
+This image includes an Unraid Docker template. The template is currently
+in **beta** — please
 [report issues](https://github.com/benedicteb/obsidian-git-backup-docker/issues)
 if you encounter problems.
+
+> **Note:** This template is not yet in the official
+> [Community Applications](https://forums.unraid.net/topic/38582-plug-in-community-applications/)
+> search index. The install method below does not require the CA plugin —
+> it uses Unraid's built-in Docker Manager template system, which works on
+> all Unraid versions (6.x and 7.x).
 
 ### Before You Start
 
@@ -345,26 +349,21 @@ You also need a git repository with SSH access (e.g., a private GitHub repo).
 
 ### Add the Template
 
-This template is not yet in the official CA search index. To install it,
-download the template XML to Unraid's Docker Manager templates directory:
+Open a terminal in the Unraid WebGUI (terminal icon in the top-right) or
+connect via SSH, then run:
 
-1. **Open a terminal:** In the Unraid WebGUI, click the **terminal icon**
-   in the top-right navigation bar (or connect via SSH).
+```sh
+curl -fsSL -o /boot/config/plugins/dockerMan/templates/obsidian-git-backup.xml \
+  https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml
+```
 
-2. **Run this command:**
+No output means success. If you see an error, check your internet connection.
 
-   ```sh
-   curl -fsSL -o /boot/config/plugins/dockerMan/templates/obsidian-git-backup.xml \
-     https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml
-   ```
+Then:
 
-   You should see no output on success. If you see an error, check your
-   internet connection and try again.
-
-3. Go to the **Docker** tab, click **Add Container** at the bottom of
-   the page.
-
-4. In the **Template** dropdown at the top of the form, select
+1. Go to the **Docker** tab.
+2. Click **Add Container** at the bottom of the page.
+3. In the **Template** dropdown at the top of the form, select
    **obsidian\_git\_backup**. The form will populate with all the
    configuration fields.
 
@@ -415,16 +414,20 @@ across array start/stop cycles.
 
 Run one container per vault. To add another vault, install the template
 again with:
-- A different container name (e.g., `obsidian-git-backup-work`)
-- Different appdata paths (e.g., `/mnt/user/appdata/obsidian_git_backup/vault-work`)
+- A different container name (e.g., `obsidian_git_backup_work`)
+- Different vault path (e.g., `/mnt/user/appdata/obsidian_git_backup/vault-work`)
 - A different vault name and git remote URL
+
+Each container must have its own config path (e.g.,
+`/mnt/user/appdata/obsidian_git_backup/config-work`) since SSH keys and
+device state would conflict if shared.
 
 Each container counts as one device on your Obsidian Sync plan — check
 your plan's device limit at [obsidian.md/account](https://obsidian.md/account).
 
 > **Warning:** Never point two containers at the same vault simultaneously.
-> Each container must also have its own separate appdata paths — sharing
-> paths between containers causes silent data corruption.
+> Each container must have its own vault path — sharing vault paths between
+> containers causes silent data corruption.
 
 ### Troubleshooting on Unraid
 
