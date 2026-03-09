@@ -157,8 +157,8 @@ ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 #                 core-plugin, core-plugin-data,
 #                 community-plugin, community-plugin-data
 # ---------------------------------------------------------------------------
-ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf"
-ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data"
+ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf,unsupported"
+ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data"
 
 # ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
