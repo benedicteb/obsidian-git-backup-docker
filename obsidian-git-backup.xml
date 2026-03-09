@@ -5,35 +5,15 @@
   <Registry>https://hub.docker.com/r/benedicteb/obsidian-git-backup/</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
-  <!-- No ExtraParams needed. inotify watch limit must be raised on the host
-       (see Requires and README) because fs.inotify.max_user_watches is not
-       a namespaced sysctl and --sysctl has no effect from within Docker. -->
   <Support>https://github.com/benedicteb/obsidian-git-backup-docker/issues</Support>
   <Project>https://github.com/benedicteb/obsidian-git-backup-docker/</Project>
   <ReadMe>https://github.com/benedicteb/obsidian-git-backup-docker/blob/main/README.md</ReadMe>
-  <Overview>Syncs an Obsidian vault via obsidian-headless (official Obsidian Sync client) and automatically backs it up to a git repository.&#xD;
-&#xD;
-Every time Obsidian Sync delivers changes, they are committed and pushed to your git remote — giving you a private, versioned backup of your vault with full history.&#xD;
-&#xD;
-Features:&#xD;
-- Continuous sync via obsidian-headless&#xD;
-- Filesystem-event-driven git commits (no polling)&#xD;
-- Configurable debounce period for large vaults&#xD;
-- Automatic SSH key generation on first run&#xD;
-- Works with E2E encrypted vaults (decrypted locally before git commit)&#xD;
-&#xD;
-This container has no web UI and exposes no ports. Monitor it via container logs. Requires outbound internet access (TCP 443 for Obsidian Sync, TCP 22 for SSH git push).&#xD;
-&#xD;
-Requires an Obsidian Sync subscription and a git repository (GitHub, GitLab, etc).&#xD;
-If your vault uses E2E encryption, enter your password in the E2EE Password field below.&#xD;
-&#xD;
-Run one container per vault. For multiple vaults, add a second container from this template with a different name (e.g. 'obsidian-git-backup-work') and different appdata paths. Each container counts as one device against your Obsidian Sync plan's device limit. Never point two containers at the same vault. See the project README for full setup instructions.</Overview>
+  <Overview>Syncs an Obsidian vault via obsidian-headless (official Obsidian Sync client) and automatically backs it up to a git repository. Every time Obsidian Sync delivers changes, they are committed and pushed to your git remote — giving you a private, versioned backup of your vault with full history. This container has no web UI and exposes no ports. Monitor it via container logs.</Overview>
   <Category>Backup: Productivity: Tools:</Category>
   <Requires>An Obsidian Sync subscription and a git repository with SSH access. Before installing: (1) On your desktop or laptop (not the Unraid server), install Node.js, then run 'npm install -g obsidian-headless' and 'ob login' to obtain your auth token (requires a web browser). (2) If the git-watcher stops committing on a busy server, you may need to raise the inotify watch limit on the Unraid host: echo 524288 > /proc/sys/fs/inotify/max_user_watches (add to Settings > Boot > Go file to persist across reboots). After first start: check container logs for the generated SSH public key and add it to your git server (GitHub/GitLab) before the first push can succeed.</Requires>
   <Icon>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/unraid-template/img/obsidian-git-backup.png</Icon>
   <TemplateURL>https://raw.githubusercontent.com/benedicteb/obsidian-git-backup-docker/main/obsidian-git-backup.xml</TemplateURL>
   <Beta>true</Beta>
-  <Date>20260303</Date>
   <Changes>
 ### 2026-03-03
 - Initial Unraid CA template release
@@ -42,149 +22,16 @@ Run one container per vault. For multiple vaults, add a second container from th
 - Automatic SSH key generation
 - E2E encrypted vault support
   </Changes>
-
-  <!-- =================================================================== -->
-  <!-- Required variables                                                   -->
-  <!-- =================================================================== -->
-
-  <Config
-    Name="Obsidian Auth Token"
-    Target="OBSIDIAN_AUTH_TOKEN"
-    Default=""
-    Mode=""
-    Description="SENSITIVE: grants read access to ALL your Obsidian Sync vaults — treat like a password. To get it: on your desktop/laptop, install obsidian-headless (npm install -g obsidian-headless), run 'ob login' (opens a browser), then find the token file: on macOS/Linux run 'find ~/.obsidian-headless ~/.config/obsidian-headless -name auth_token 2>/dev/null', on Windows check %USERPROFILE%\.obsidian-headless\auth_token. The file contains the raw token string (not JSON). See README for details."
-    Type="Variable"
-    Display="always"
-    Required="true"
-    Mask="true"/>
-
-  <Config
-    Name="Vault Name"
-    Target="OBSIDIAN_GIT_VAULT_NAME"
-    Default=""
-    Mode=""
-    Description="The name of your Obsidian vault exactly as shown in the Obsidian app (e.g. 'My Notes'). Must match exactly — case-sensitive, including spaces. Run 'ob sync-list-remote' on your desktop to list available vaults. You can also use the vault ID (UUID) — required if multiple vaults share the same name."
-    Type="Variable"
-    Display="always"
-    Required="true"
-    Mask="false"/>
-
-  <Config
-    Name="Git Remote URL"
-    Target="OBSIDIAN_GIT_REMOTE_URL"
-    Default=""
-    Mode=""
-    Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git"
-    Type="Variable"
-    Display="always"
-    Required="true"
-    Mask="false"/>
-
-  <Config
-    Name="E2EE Password"
-    Target="OBSIDIAN_GIT_E2EE_PASSWORD"
-    Default=""
-    Mode=""
-    Description="Only needed if the vault uses E2E encryption. Important: obsidian-headless decrypts the vault locally before writing files. Your git repository will contain plaintext notes — secure your git remote accordingly. E2EE prevents Obsidian's servers from reading your data, but the local copy (and your git backup) is always unencrypted."
-    Type="Variable"
-    Display="always"
-    Required="false"
-    Mask="true"/>
-
-  <!-- =================================================================== -->
-  <!-- Volumes                                                              -->
-  <!-- =================================================================== -->
-
-  <Config
-    Name="Config Storage"
-    Target="/config"
-    Default="/mnt/user/appdata/obsidian-git-backup/config"
-    Mode="rw"
-    Description="Stores SSH keys and obsidian-headless device state. Must survive restarts. If this volume is deleted or replaced, the container will generate a new SSH key on next start — you'll need to add it to your git server again."
-    Type="Path"
-    Display="always"
-    Required="true"
-    Mask="false"/>
-
-  <Config
-    Name="Vault Storage"
-    Target="/vault"
-    Default="/mnt/user/appdata/obsidian-git-backup/vault"
-    Mode="rw"
-    Description="Vault data and git working tree. Strongly recommended — without this, the container re-clones the entire vault on every restart (slow, degrades git history). For better I/O, ensure your 'appdata' share uses 'cache-prefer' or 'cache-only' mode (set in Unraid's Shares tab). The default path will then automatically land on the cache drive."
-    Type="Path"
-    Display="always"
-    Required="true"
-    Mask="false"/>
-
-  <!-- =================================================================== -->
-  <!-- Optional variables                                                   -->
-  <!-- =================================================================== -->
-
-  <Config
-    Name="Git Author Name"
-    Target="OBSIDIAN_GIT_USER_NAME"
-    Default="obsidian-git-backup"
-    Mode=""
-    Description="Name used for git commits."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
-  <Config
-    Name="Git Author Email"
-    Target="OBSIDIAN_GIT_USER_EMAIL"
-    Default="obsidian-git-backup@local"
-    Mode=""
-    Description="Email used for git commits."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
-  <Config
-    Name="Git Branch"
-    Target="OBSIDIAN_GIT_BRANCH"
-    Default="main"
-    Mode=""
-    Description="Git branch to push to. Must already exist on the remote — GitHub creates 'main' automatically for new repositories."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
-  <Config
-    Name="Debounce Seconds"
-    Target="OBSIDIAN_GIT_DEBOUNCE_SECS"
-    Default="30"
-    Mode=""
-    Description="Seconds of filesystem quiet before committing. After detecting changes, the watcher waits this long for more changes before committing. For large vaults (10,000+ notes) or slow connections, consider 60-120."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
-  <Config
-    Name="PUID"
-    Target="PUID"
-    Default="99"
-    Mode=""
-    Description="Leave at 99 unless you know you need a different UID. Unraid's permission repair tools (New Permissions) expect appdata files owned by UID 99. Clearing this field causes the image default (1000) to take effect, which can cause those tools to produce unexpected results."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
-  <Config
-    Name="PGID"
-    Target="PGID"
-    Default="100"
-    Mode=""
-    Description="Leave at 100 unless you know you need a different GID. Unraid's permission repair tools (New Permissions) expect appdata files owned by GID 100. Clearing this field causes the image default (1000) to take effect, which can cause those tools to produce unexpected results."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false"/>
-
+  <Config Name="Obsidian Auth Token" Target="OBSIDIAN_AUTH_TOKEN" Default="" Mode="" Description="Your Obsidian auth token from 'ob login'. Grants read access to all your Obsidian Sync vaults — treat like a password." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Vault Name" Target="OBSIDIAN_GIT_VAULT_NAME" Default="" Mode="" Description="The name of your Obsidian vault exactly as shown in the Obsidian app (case-sensitive). Run 'ob sync-list-remote' to list available vaults." Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Git Remote URL" Target="OBSIDIAN_GIT_REMOTE_URL" Default="" Mode="" Description="SSH URL of the git remote to push to. Example: git@github.com:username/vault-backup.git" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="E2EE Password" Target="OBSIDIAN_GIT_E2EE_PASSWORD" Default="" Mode="" Description="Only needed if the vault uses E2E encryption. Your git repository will contain plaintext notes — secure your git remote accordingly." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Config Storage" Target="/config" Default="/mnt/user/appdata/obsidian-git-backup/config" Mode="rw" Description="Stores SSH keys and obsidian-headless device state. Must survive restarts." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Vault Storage" Target="/vault" Default="/mnt/user/appdata/obsidian-git-backup/vault" Mode="rw" Description="Vault data and git working tree. Without this, the container re-clones the entire vault on every restart." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Git Author Name" Target="OBSIDIAN_GIT_USER_NAME" Default="obsidian-git-backup" Mode="" Description="Name used for git commits." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Git Author Email" Target="OBSIDIAN_GIT_USER_EMAIL" Default="obsidian-git-backup@local" Mode="" Description="Email used for git commits." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Git Branch" Target="OBSIDIAN_GIT_BRANCH" Default="main" Mode="" Description="Git branch to push to. Must already exist on the remote." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Debounce Seconds" Target="OBSIDIAN_GIT_DEBOUNCE_SECS" Default="30" Mode="" Description="Seconds of filesystem quiet before committing. For large vaults, consider 60-120." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Leave at 99 unless you know you need a different UID." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Leave at 100 unless you know you need a different GID." Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>
