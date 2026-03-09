@@ -229,7 +229,7 @@ You should see:
 | `OBSIDIAN_GIT_BRANCH` | No | `main` | Git branch |
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
-| `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Enable Git LFS for binary files. Set to `true` to enable. |
+| `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Store binary attachments (images, PDFs, video) via Git LFS instead of directly in git. Requires LFS support on your git remote. See [Git LFS](#git-lfs-large-file-storage). |
 | `OBSIDIAN_GIT_LFS_EXTENSIONS` | No | *(see below)* | Comma-separated file extensions to track via LFS. |
 | `PUID` | No | `1000` | Your host user ID. Needed for bind mounts — run `id -u` to find it. |
 | `PGID` | No | `1000` | Your host group ID. Needed for bind mounts — run `id -g` to find it. |
@@ -336,9 +336,17 @@ To enable LFS, add to your `.env`:
 OBSIDIAN_GIT_LFS_ENABLED=true
 ```
 
+> **Upgrading from an earlier version?** If you used a version of this
+> image where LFS was enabled by default, you must add
+> `OBSIDIAN_GIT_LFS_ENABLED=true` to your `.env` to keep LFS active.
+> Without it, a fresh container start may leave LFS pointer stubs in
+> `/vault` instead of real file content — the container detects this and
+> refuses to start, with instructions to fix it.
+
 **Requirements:** Your git remote must support LFS. GitHub, GitLab, Gitea,
 Forgejo, and Bitbucket all support LFS. Many self-hosted git servers do not
-have LFS enabled by default — check your provider's documentation.
+have LFS enabled — check that your server has LFS storage configured, or
+test with `git lfs ls-files` after your first push.
 
 > **GitHub Free accounts** include 1 GB LFS storage and 1 GB/month bandwidth.
 > Vaults with many large images or PDFs may exceed this. Check your
@@ -374,8 +382,8 @@ comma-separated list of file extensions (without dots):
 > To add one extension, copy the full default list and append yours.
 
 ```sh
-# Add .excalidraw to the defaults (must copy full list + append)
-OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf,excalidraw
+# Add .heic to the defaults (must copy full list + append)
+OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,bmp,webp,tif,tiff,mp4,mov,avi,mkv,webm,mp3,wav,ogg,flac,m4a,aac,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,tar,gz,7z,rar,woff,woff2,ttf,otf,heic
 ```
 
 To track *only* specific formats:
@@ -385,14 +393,16 @@ To track *only* specific formats:
 OBSIDIAN_GIT_LFS_EXTENSIONS=png,jpg,jpeg,gif,pdf
 ```
 
-### Migrating an existing repo to LFS
+### What happens to existing binary files?
 
-If you enable LFS on a repo that already has binary files committed
-directly, the existing files stay in git history as regular objects. Only
-*new or modified* files matching the tracked extensions will be stored via
-LFS going forward. To migrate existing files, you would need to run
-`git lfs migrate` manually — see the
+Enabling LFS only affects *new or modified* files from that point forward.
+Binary files already committed directly to git remain in git history as
+regular objects. Only new attachments will be stored via LFS.
+
+To migrate existing files, you would need to run `git lfs migrate`
+manually — see the
 [Git LFS documentation](https://github.com/git-lfs/git-lfs/blob/main/docs/man/git-lfs-migrate.adoc).
+This is optional.
 
 ## Unraid Installation
 
