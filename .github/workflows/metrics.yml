@@ -9,6 +9,12 @@
 #
 # The docker-publish.yml workflow ignores changes to docs/metrics/ via
 # paths-ignore, so commits from this workflow do not trigger image builds.
+# Bot commits are also filtered from release changelogs by author.
+#
+# Failure policy: if the Docker Hub API is unreachable or returns an error,
+# the workflow fails and the CSV gets a gap for that day. This is acceptable
+# — pull counts are a trend metric, not a critical data source. Re-run
+# manually via workflow_dispatch to fill a gap if needed.
 # =============================================================================
 
 name: Record Docker Hub Pulls
@@ -20,6 +26,12 @@ on:
 
   # Allow manual trigger for testing
   workflow_dispatch:
+
+# Serialise concurrent runs (e.g., manual trigger overlapping with cron).
+# Don't cancel in-progress — let it finish, then run the next one.
+concurrency:
+  group: metrics-record
+  cancel-in-progress: false
 
 env:
   DOCKER_HUB_REPO: benedicteb/obsidian-git-backup
@@ -36,6 +48,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch and record pull count
+        id: fetch
         run: |
           set -euo pipefail
 
@@ -54,6 +67,13 @@ jobs:
           DATE=$(date -u +%Y-%m-%d)
           CSV_FILE="docs/metrics/pulls.csv"
 
+          # Validate CSV header integrity
+          FIRST_LINE=$(head -1 "$CSV_FILE" 2>/dev/null || true)
+          if [ "$FIRST_LINE" != "date,pull_count" ]; then
+            echo "::error::${CSV_FILE} has unexpected first line: '${FIRST_LINE}'. Expected 'date,pull_count'. Check file integrity."
+            exit 1
+          fi
+
           # Skip if today's date is already recorded (idempotent on re-runs)
           if grep -q "^${DATE}," "$CSV_FILE" 2>/dev/null; then
             echo "Already recorded for ${DATE} — skipping."
@@ -63,7 +83,12 @@ jobs:
           echo "${DATE},${COUNT}" >> "$CSV_FILE"
           echo "Recorded: ${DATE} → ${COUNT} pulls"
 
+          # Pass count to the commit step for the commit message
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
       - name: Commit and push
+        env:
+          PULL_COUNT: ${{ steps.fetch.outputs.count }}
         run: |
           set -euo pipefail
 
@@ -78,5 +103,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore: record daily Docker Hub pull count"
-          git push
+          git commit -m "chore(metrics): record daily pull count (${PULL_COUNT})"
+          git push origin HEAD:main
