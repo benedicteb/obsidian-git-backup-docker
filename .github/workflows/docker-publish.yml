@@ -212,8 +212,10 @@ jobs:
           CHANGELOG_FILE=$(mktemp)
           trap 'rm -f "${CHANGELOG_FILE}.breaking" "${CHANGELOG_FILE}.feat" "${CHANGELOG_FILE}.fix" "${CHANGELOG_FILE}.other"' EXIT
 
-          # Categorise commits by conventional commit type into temp files
-          git log --pretty=tformat:"%s" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
+          # Categorise commits by conventional commit type into temp files.
+          # Exclude automated bot commits (e.g., daily metrics scraper) from
+          # the changelog — they are noise in release notes.
+          git log --pretty=tformat:"%s" --invert-grep --author="github-actions\[bot\]" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
             if [ -z "$subject" ]; then continue; fi
 
             # Check for breaking changes (trailing ! before colon)
