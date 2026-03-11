@@ -16,7 +16,8 @@
 #   - fix:, docs:, chore:, etc.        → patch bump (0.1.0 → 0.1.1)
 #
 # Note: every push to main creates a release. Use [skip ci] in commit
-# message to skip if needed.
+# message to skip if needed. Pushes that only change docs/metrics/ are
+# ignored (used by the daily pull-count scraper).
 # =============================================================================
 
 name: Docker Publish
@@ -24,6 +25,8 @@ name: Docker Publish
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/metrics/**'
 
 # Cancel in-progress runs for the same branch. Newer push wins.
 # This prevents race conditions where two runs compute the same version tag.
