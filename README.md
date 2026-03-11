@@ -622,6 +622,9 @@ variables → Actions):
 | `DOCKERHUB_USERNAME` | Your Docker Hub username |
 | `DOCKERHUB_TOKEN` | Docker Hub → Account Settings → Security → New Access Token |
 
+Historical pull counts are recorded daily in
+[`docs/metrics/pulls.csv`](docs/metrics/pulls.csv).
+
 ## Limitations (PoC)
 
 - **SSH only** — HTTPS git remotes are not supported yet.
