@@ -1,0 +1,82 @@
+# =============================================================================
+# Docker Hub Pull Count Metrics
+#
+# Runs daily at 06:00 UTC. Fetches the aggregate pull_count from Docker Hub's
+# public API and appends a date,count row to docs/metrics/pulls.csv.
+#
+# Privacy: Docker Hub's pull_count is a single anonymous aggregate counter.
+# No individual user data, IPs, or identifiers are collected.
+#
+# The docker-publish.yml workflow ignores changes to docs/metrics/ via
+# paths-ignore, so commits from this workflow do not trigger image builds.
+# =============================================================================
+
+name: Record Docker Hub Pulls
+
+on:
+  schedule:
+    # Daily at 06:00 UTC
+    - cron: '0 6 * * *'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+env:
+  DOCKER_HUB_REPO: benedicteb/obsidian-git-backup
+
+jobs:
+  record-pulls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write  # Needed to push the CSV update
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch and record pull count
+        run: |
+          set -euo pipefail
+
+          API_URL="https://hub.docker.com/v2/repositories/${DOCKER_HUB_REPO}/"
+          RESPONSE=$(curl -fsSL "$API_URL")
+          COUNT=$(printf '%s' "$RESPONSE" | jq -r '.pull_count')
+
+          # Validate that we got a number
+          case "$COUNT" in
+            ''|*[!0-9]*)
+              echo "::error::Docker Hub API returned non-numeric pull_count: ${COUNT}"
+              exit 1
+              ;;
+          esac
+
+          DATE=$(date -u +%Y-%m-%d)
+          CSV_FILE="docs/metrics/pulls.csv"
+
+          # Skip if today's date is already recorded (idempotent on re-runs)
+          if grep -q "^${DATE}," "$CSV_FILE" 2>/dev/null; then
+            echo "Already recorded for ${DATE} — skipping."
+            exit 0
+          fi
+
+          echo "${DATE},${COUNT}" >> "$CSV_FILE"
+          echo "Recorded: ${DATE} → ${COUNT} pulls"
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/metrics/pulls.csv
+
+          # Only commit if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: record daily Docker Hub pull count"
+          git push
