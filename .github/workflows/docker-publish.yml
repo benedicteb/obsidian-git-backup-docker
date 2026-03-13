@@ -125,8 +125,12 @@ jobs:
             | { grep -v '^github-actions\[bot\]' || true; } \
             | cut -f2)
 
-          # Bodies from non-bot commits (first line has author prefix;
-          # continuation lines don't, but bot commits have empty bodies)
+          # Bodies from non-bot commits. Note: %b is multi-line, so only the
+          # first line of each body carries the author<TAB> prefix. Continuation
+          # lines pass through grep -v unfiltered. This is safe because all
+          # current bot commits (chore(metrics):) have empty bodies. If a future
+          # bot commit has a multi-line body, the continuation lines would leak
+          # into BODIES — revisit if that ever happens.
           BODIES=$(git log --pretty=tformat:"%an%x09%b" "$COMMIT_RANGE" \
             | { grep -v '^github-actions\[bot\]' || true; } \
             | cut -f2-)
