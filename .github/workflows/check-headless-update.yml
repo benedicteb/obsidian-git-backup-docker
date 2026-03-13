@@ -229,8 +229,8 @@ jobs:
           set -euo pipefail
 
           # Read dependency JSON from temp files (avoids shell injection
-          # from ${{ }} template expressions — see GitHub Actions security
-          # best practices).
+          # from GitHub Actions template expressions — see GitHub Actions
+          # security best practices).
           CURRENT_DEPS=$(cat /tmp/current_deps.json)
           LATEST_DEPS=$(cat /tmp/latest_deps.json)
 
