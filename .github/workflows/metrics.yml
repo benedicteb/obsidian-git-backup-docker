@@ -9,7 +9,8 @@
 #
 # The docker-publish.yml workflow ignores changes to docs/metrics/ via
 # paths-ignore, so commits from this workflow do not trigger image builds.
-# Bot commits are also filtered from release changelogs by author.
+# Bot commits are also filtered from release changelogs and version bumps
+# via tab-delimited author+subject filtering (grep -v on author name).
 #
 # Failure policy: if the Docker Hub API is unreachable or returns an error,
 # the workflow fails and the CSV gets a gap for that day. This is acceptable

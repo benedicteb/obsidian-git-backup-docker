@@ -61,8 +61,11 @@ Implementation:
 - **Build isolation**: The Docker publish workflow
   (`docker-publish.yml`) uses `paths-ignore: ['docs/metrics/**']`
   to prevent metrics commits from triggering image builds. Bot
-  commits are also filtered from release changelogs by author
-  (`--invert-grep --author="github-actions[bot]"`).
+  commits are also filtered from release changelogs and version
+  bump calculations by author name — using a tab-delimited
+  `%an%x09%s` format piped through
+  `grep -v '^github-actions\[bot\]'`, because `git log`'s
+  `--invert-grep` only inverts `--grep`, not `--author`.
 
 - **Concurrency**: A `concurrency` group with
   `cancel-in-progress: false` serialises overlapping runs (e.g.,
