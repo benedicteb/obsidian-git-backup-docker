@@ -17,6 +17,12 @@
 # creating a duplicate.
 #
 # No secrets required beyond the default GITHUB_TOKEN.
+#
+# On failure: GitHub sends an email to the repository owner. Check the
+# Actions tab for error details. Common failure causes:
+#   - npm registry temporarily unavailable (re-run manually)
+#   - CHANGELOG.md moved or renamed upstream (update the URL in this file)
+#   - obsidian-headless version string format changed in the Dockerfile
 # =============================================================================
 
 name: Check obsidian-headless Update
@@ -54,11 +60,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Match: npm install -g obsidian-headless@X.Y.Z
-          CURRENT=$(grep -oP 'obsidian-headless@\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
+          # Extract version from: npm install -g obsidian-headless@X.Y.Z
+          # Uses grep -o + sed instead of grep -P (PCRE) for portability.
+          CURRENT=$(grep -o 'obsidian-headless@[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*' Dockerfile \
+            | sed 's/obsidian-headless@//')
 
           if [ -z "$CURRENT" ]; then
-            echo "::error::Could not extract obsidian-headless version from Dockerfile"
+            echo "::error::Could not extract obsidian-headless version from Dockerfile. Expected a line like: npm install -g obsidian-headless@X.Y.Z"
             exit 1
           fi
 
@@ -70,48 +78,61 @@ jobs:
       # ---------------------------------------------------------------
       - name: Get latest version from npm
         id: latest
+        env:
+          CURRENT_VERSION: ${{ steps.current.outputs.version }}
         run: |
           set -euo pipefail
 
           REGISTRY_URL="https://registry.npmjs.org/obsidian-headless"
-          RESPONSE=$(curl -fsSL "$REGISTRY_URL")
 
-          LATEST=$(printf '%s' "$RESPONSE" | jq -r '.["dist-tags"].latest')
+          # Download to a temp file to avoid storing the full registry
+          # response (all versions + metadata) in a shell variable.
+          REGISTRY_FILE=$(mktemp)
+          trap 'rm -f "$REGISTRY_FILE"' EXIT
+
+          if ! curl -fsSL -o "$REGISTRY_FILE" "$REGISTRY_URL"; then
+            echo "::error::npm registry request failed for ${REGISTRY_URL}. The registry may be temporarily unavailable. Re-run this workflow manually once it recovers."
+            exit 1
+          fi
+
+          LATEST=$(jq -r '.["dist-tags"].latest' "$REGISTRY_FILE")
 
           if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
             echo "::error::Could not determine latest version from npm registry"
             exit 1
           fi
 
+          # Validate that the version is a valid semver string
+          if ! printf '%s' "$LATEST" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Latest version '${LATEST}' is not a valid semver string (expected X.Y.Z)"
+            exit 1
+          fi
+
           echo "version=${LATEST}" >> "$GITHUB_OUTPUT"
           echo "Latest npm version: ${LATEST}"
 
-          # Also extract gitHead SHAs for commit comparison links
-          CURRENT="${{ steps.current.outputs.version }}"
-
-          CURRENT_SHA=$(printf '%s' "$RESPONSE" | jq -r --arg v "$CURRENT" '.versions[$v].gitHead // empty')
-          LATEST_SHA=$(printf '%s' "$RESPONSE" | jq -r --arg v "$LATEST" '.versions[$v].gitHead // empty')
+          # Extract gitHead SHAs for commit comparison links
+          CURRENT_SHA=$(jq -r --arg v "$CURRENT_VERSION" '.versions[$v].gitHead // empty' "$REGISTRY_FILE")
+          LATEST_SHA=$(jq -r --arg v "$LATEST" '.versions[$v].gitHead // empty' "$REGISTRY_FILE")
 
           echo "current_sha=${CURRENT_SHA}" >> "$GITHUB_OUTPUT"
           echo "latest_sha=${LATEST_SHA}" >> "$GITHUB_OUTPUT"
 
-          # Extract dependency lists for both versions (as JSON objects)
-          CURRENT_DEPS=$(printf '%s' "$RESPONSE" | jq -c --arg v "$CURRENT" '.versions[$v].dependencies // {}')
-          LATEST_DEPS=$(printf '%s' "$RESPONSE" | jq -c --arg v "$LATEST" '.versions[$v].dependencies // {}')
-
-          echo "current_deps=${CURRENT_DEPS}" >> "$GITHUB_OUTPUT"
-          echo "latest_deps=${LATEST_DEPS}" >> "$GITHUB_OUTPUT"
+          # Extract dependency lists for both versions as compact JSON.
+          # Written to temp files to avoid GITHUB_OUTPUT multiline issues.
+          jq -c --arg v "$CURRENT_VERSION" '.versions[$v].dependencies // {}' "$REGISTRY_FILE" > /tmp/current_deps.json
+          jq -c --arg v "$LATEST" '.versions[$v].dependencies // {}' "$REGISTRY_FILE" > /tmp/latest_deps.json
 
       # ---------------------------------------------------------------
       # Compare versions — exit early if already up to date
       # ---------------------------------------------------------------
       - name: Check if update needed
         id: check
+        env:
+          CURRENT: ${{ steps.current.outputs.version }}
+          LATEST: ${{ steps.latest.outputs.version }}
         run: |
           set -euo pipefail
-
-          CURRENT="${{ steps.current.outputs.version }}"
-          LATEST="${{ steps.latest.outputs.version }}"
 
           if [ "$CURRENT" = "$LATEST" ]; then
             echo "Already up to date (${CURRENT}). Nothing to do."
@@ -130,10 +151,10 @@ jobs:
         id: existing_pr
         env:
           GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.latest.outputs.version }}
         run: |
           set -euo pipefail
 
-          LATEST="${{ steps.latest.outputs.version }}"
           BRANCH="deps/obsidian-headless-${LATEST}"
 
           # Check if branch already exists on remote
@@ -155,48 +176,48 @@ jobs:
       - name: Fetch upstream changelog
         if: steps.check.outputs.needed == 'true' && steps.existing_pr.outputs.exists == 'false'
         id: changelog
+        env:
+          CURRENT: ${{ steps.current.outputs.version }}
+          LATEST: ${{ steps.latest.outputs.version }}
         run: |
           set -euo pipefail
 
-          CURRENT="${{ steps.current.outputs.version }}"
-          LATEST="${{ steps.latest.outputs.version }}"
-
-          # Fetch CHANGELOG.md from obsidianmd/obsidian-headless (master branch)
+          # Fetch CHANGELOG.md from obsidianmd/obsidian-headless (master branch).
+          # Non-fatal: if it fails, the PR body will note the missing changelog.
           CHANGELOG=$(curl -fsSL \
             "https://raw.githubusercontent.com/obsidianmd/obsidian-headless/master/CHANGELOG.md" \
-            2>/dev/null || true)
+            || true)
 
           if [ -z "$CHANGELOG" ]; then
-            echo "Could not fetch upstream CHANGELOG.md — will use commit log instead."
-            echo "entries=_Could not fetch upstream CHANGELOG.md._" >> "$GITHUB_OUTPUT"
+            echo "Could not fetch upstream CHANGELOG.md — PR will note this."
+            echo "_Could not fetch upstream CHANGELOG.md._" > /tmp/changelog_entries.txt
             exit 0
           fi
 
-          # Extract all version sections between current (exclusive) and latest (inclusive).
-          # The CHANGELOG uses "## X.Y.Z" headers.
+          # Extract changelog sections between current (exclusive) and latest (inclusive).
+          # The CHANGELOG uses "## X.Y.Z" headers in descending order (newest first).
           #
-          # Strategy: use awk to collect lines from versions > CURRENT up to and
-          # including LATEST. We compare version strings lexicographically, which
-          # works for 0.0.x semver where all components are single digits.
-          # For robustness, we include all sections between the two versions.
-          ENTRIES=$(printf '%s\n' "$CHANGELOG" | awk -v current="$CURRENT" -v latest="$LATEST" '
+          # Strategy: start capturing when we see any version header (newest first),
+          # and stop permanently when we hit the current version header.
+          # This correctly captures all entries for versions newer than current.
+          #
+          # Note: version comparison is string-based, which works for single-digit
+          # semver components (0.0.x). If obsidian-headless reaches 0.10.x, this
+          # will need a proper numeric comparison.
+          printf '%s\n' "$CHANGELOG" | awk -v current="$CURRENT" '
+            BEGIN { in_range = 0; found_current = 0 }
             /^## [0-9]+\.[0-9]+\.[0-9]+/ {
               ver = $2
-              # We want versions > current AND <= latest
-              in_range = (ver != current && ver != "")
-              # Stop if we hit the current version or older
-              if (ver == current) { in_range = 0 }
+              if (ver == current) { in_range = 0; found_current = 1; next }
+              if (!found_current) { in_range = 1 }
+              else { in_range = 0 }
             }
             in_range { print }
-          ')
+          ' > /tmp/changelog_entries.txt
 
-          if [ -z "$ENTRIES" ]; then
-            ENTRIES="_No changelog entries found between ${CURRENT} and ${LATEST}._"
+          if [ ! -s /tmp/changelog_entries.txt ]; then
+            echo "_No changelog entries found between ${CURRENT} and ${LATEST}._" > /tmp/changelog_entries.txt
           fi
-
-          # Write to a file to avoid GITHUB_OUTPUT escaping issues with multiline
-          printf '%s\n' "$ENTRIES" > /tmp/changelog_entries.txt
-          echo "file=/tmp/changelog_entries.txt" >> "$GITHUB_OUTPUT"
 
       # ---------------------------------------------------------------
       # Build the dependency diff section
@@ -207,10 +228,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          CURRENT_DEPS='${{ steps.latest.outputs.current_deps }}'
-          LATEST_DEPS='${{ steps.latest.outputs.latest_deps }}'
+          # Read dependency JSON from temp files (avoids shell injection
+          # from ${{ }} template expressions — see GitHub Actions security
+          # best practices).
+          CURRENT_DEPS=$(cat /tmp/current_deps.json)
+          LATEST_DEPS=$(cat /tmp/latest_deps.json)
 
-          DIFF=$(jq -r -n \
+          jq -r -n \
             --argjson current "$CURRENT_DEPS" \
             --argjson latest "$LATEST_DEPS" '
             # Find all unique keys
@@ -225,10 +249,7 @@ jobs:
               else "- **Changed**: `\($key)` \($old) → \($new)"
               end
             ] | if length == 0 then "_No dependency changes._" else join("\n") end
-          ')
-
-          printf '%s\n' "$DIFF" > /tmp/depdiff.txt
-          echo "file=/tmp/depdiff.txt" >> "$GITHUB_OUTPUT"
+          ' > /tmp/depdiff.txt
 
       # ---------------------------------------------------------------
       # Update the Dockerfile and create the PR
@@ -253,8 +274,11 @@ jobs:
           # Create branch
           git checkout -b "$BRANCH"
 
-          # Update the version in the Dockerfile
-          sed -i "s/obsidian-headless@${CURRENT}/obsidian-headless@${LATEST}/" Dockerfile
+          # Update the version in the Dockerfile.
+          # Escape dots in the version strings for sed regex safety.
+          CURRENT_ESC=$(printf '%s' "$CURRENT" | sed 's/\./\\./g')
+          LATEST_ESC=$(printf '%s' "$LATEST" | sed 's/\./\\./g')
+          sed -i "s/obsidian-headless@${CURRENT_ESC}/obsidian-headless@${LATEST_ESC}/" Dockerfile
 
           # Verify the change was made
           if ! grep -q "obsidian-headless@${LATEST}" Dockerfile; then
@@ -262,19 +286,19 @@ jobs:
             exit 1
           fi
 
-          # Commit and push
-          git add Dockerfile
-          git commit -m "deps: bump obsidian-headless ${CURRENT} → ${LATEST}"
-          git push origin "$BRANCH"
+          # --- Build the PR body BEFORE pushing (so a body-construction
+          # failure doesn't leave an orphan remote branch) ---
 
-          # Build the PR body file
           CHANGELOG_ENTRIES=$(cat /tmp/changelog_entries.txt 2>/dev/null || echo "_Could not fetch changelog._")
           DEP_DIFF=$(cat /tmp/depdiff.txt 2>/dev/null || echo "_Could not compute dependency diff._")
 
-          # Build commit comparison link if both SHAs are available
+          # Build commit comparison link if both SHAs are available.
+          # Use cut instead of ${VAR:0:7} bashism for POSIX sh compatibility.
           COMMIT_LINK=""
           if [ -n "$CURRENT_SHA" ] && [ -n "$LATEST_SHA" ]; then
-            COMMIT_LINK="- [View all commits (${CURRENT_SHA:0:7}...${LATEST_SHA:0:7})](https://github.com/obsidianmd/obsidian-headless/compare/${CURRENT_SHA}...${LATEST_SHA})"
+            CURRENT_SHORT=$(printf '%s' "$CURRENT_SHA" | cut -c1-7)
+            LATEST_SHORT=$(printf '%s' "$LATEST_SHA" | cut -c1-7)
+            COMMIT_LINK="- [View all commits (${CURRENT_SHORT}...${LATEST_SHORT})](https://github.com/obsidianmd/obsidian-headless/compare/${CURRENT_SHA}...${LATEST_SHA})"
           fi
 
           PR_BODY="/tmp/pr_body.md"
@@ -283,7 +307,8 @@ jobs:
             echo ""
             echo "A new version of [obsidian-headless](https://github.com/obsidianmd/obsidian-headless) has been published to npm."
             echo ""
-            echo "> **This PR does not auto-merge.** obsidian-headless is pre-stable (0.x) — please review the changes below before merging."
+            echo "> [!WARNING]"
+            echo "> obsidian-headless is pre-stable (\`0.x\`). Breaking changes can land in any release. Review the changelog below before merging."
             echo ""
             echo "### Upstream changelog"
             echo ""
@@ -300,19 +325,36 @@ jobs:
               echo "$COMMIT_LINK"
             fi
             echo "- [Upstream repo](https://github.com/obsidianmd/obsidian-headless)"
+            echo "- [Upstream issues](https://github.com/obsidianmd/obsidian-headless/issues)"
             echo ""
-            echo "### What to check before merging"
+            echo "### Before merging"
             echo ""
-            echo "- [ ] Read the changelog entries above for breaking changes"
-            echo "- [ ] Check if any dependency changes affect our build (e.g., native modules)"
-            echo "- [ ] Consider testing the new version locally: \`docker build --build-arg TARGETARCH=amd64 -t test .\`"
+            echo "The failure mode for a bad obsidian-headless upgrade is **sync stops working**, not data loss. Obsidian Sync has server-side history and the git backup retains the last committed state."
+            echo ""
+            echo "- [ ] Review the changelog for breaking changes — especially mentions of the sync protocol, \`ob sync-config\`, or stored config format changes"
+            echo "- [ ] Verify \`ob sync-config --file-types\` and \`--configs\` flags still accept the same values (our ADR-0017 workaround in init-config.sh depends on this)"
+            echo "- [ ] If dependency changes include native modules (e.g., \`better-sqlite3\`), verify both amd64 and arm64 builds complete in CI"
+            echo "- [ ] For E2EE vaults: check if credential storage format changed (keytar was removed in 0.0.3; a similar migration could affect stored passwords)"
+            echo "- [ ] Smoke-test locally: \`docker build --build-arg TARGETARCH=amd64 -t obs-test . && docker run --rm obs-test ob --version\`"
+            echo "- [ ] Check [upstream issues](https://github.com/obsidianmd/obsidian-headless/issues) for regressions reported after this release"
+            echo "- [ ] After merging, confirm the Docker publish CI run completes and the new image is available on Docker Hub"
           } > "$PR_BODY"
 
-          # Create the PR
+          # --- Now push and create the PR ---
+          git add Dockerfile
+          git commit -m "deps: bump obsidian-headless ${CURRENT} → ${LATEST}"
+          git push origin "$BRANCH"
+
+          # Ensure labels exist (no-op if they already do)
+          gh label create "dependencies" --description "Dependency updates" --color "0075ca" 2>/dev/null || true
+          gh label create "automated" --description "Created by automation" --color "ededed" 2>/dev/null || true
+
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "deps: bump obsidian-headless ${CURRENT} → ${LATEST}" \
+            --label "dependencies" \
+            --label "automated" \
             --body-file "$PR_BODY"
 
           echo "PR created successfully."
