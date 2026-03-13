@@ -110,16 +110,32 @@ jobs:
               ;;
           esac
 
-          # Scan commit subjects and bodies for bump signals
+          # Scan commit subjects and bodies for bump signals.
+          # Exclude automated bot commits (e.g., daily metrics scraper) —
+          # they should not influence version bumps.
+          #
+          # Note: git's --invert-grep only inverts --grep, not --author.
+          # We use a tab-delimited author+subject format and grep -v to
+          # exclude bot commits, then cut to extract subjects only.
+          # Bodies are scanned separately with the same author filter.
           BUMP="patch"  # default: any commit is at least a patch release
 
-          COMMITS=$(git log --pretty=format:"%s%n%b" "$COMMIT_RANGE")
+          # Subjects from non-bot commits only (|| true: safe if all are bot commits)
+          SUBJECTS=$(git log --pretty=tformat:"%an%x09%s" "$COMMIT_RANGE" \
+            | { grep -v '^github-actions\[bot\]' || true; } \
+            | cut -f2)
+
+          # Bodies from non-bot commits (first line has author prefix;
+          # continuation lines don't, but bot commits have empty bodies)
+          BODIES=$(git log --pretty=tformat:"%an%x09%b" "$COMMIT_RANGE" \
+            | { grep -v '^github-actions\[bot\]' || true; } \
+            | cut -f2-)
 
           # Breaking change: footer "BREAKING CHANGE:" or type suffix "!"
-          if printf '%s\n' "$COMMITS" | grep -qiE "BREAKING[- ]CHANGE" || \
-             printf '%s\n' "$COMMITS" | grep -qE "^[a-z]+(\(.+\))?!:"; then
+          if printf '%s\n' "$BODIES" | grep -qiE "BREAKING[- ]CHANGE" || \
+             printf '%s\n' "$SUBJECTS" | grep -qE "^[a-z]+(\(.+\))?!:"; then
             BUMP="major"
-          elif printf '%s\n' "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+          elif printf '%s\n' "$SUBJECTS" | grep -qE "^feat(\(.+\))?:"; then
             BUMP="minor"
           fi
 
@@ -215,7 +231,13 @@ jobs:
           # Categorise commits by conventional commit type into temp files.
           # Exclude automated bot commits (e.g., daily metrics scraper) from
           # the changelog — they are noise in release notes.
-          git log --pretty=tformat:"%s" --invert-grep --author="github-actions\[bot\]" "$COMMIT_RANGE" -- | while IFS= read -r subject; do
+          # Note: git's --invert-grep only inverts --grep, not --author.
+          # We use a tab-delimited format with author name and filter via
+          # grep -v to reliably exclude bot commits.
+          git log --pretty=tformat:"%an%x09%s" "$COMMIT_RANGE" -- \
+            | { grep -v '^github-actions\[bot\]' || true; } \
+            | cut -f2 \
+            | while IFS= read -r subject; do
             if [ -z "$subject" ]; then continue; fi
 
             # Check for breaking changes (trailing ! before colon)
@@ -234,9 +256,12 @@ jobs:
             fi
           done
 
-          # Also check commit bodies for BREAKING CHANGE footer
+          # Also check commit bodies for BREAKING CHANGE footer (excluding bot commits)
           if [ ! -s "${CHANGELOG_FILE}.breaking" ]; then
-            if git log --pretty=format:"%b" "$COMMIT_RANGE" -- | grep -qiE "BREAKING[- ]CHANGE"; then
+            if git log --pretty=format:"%an%x09%b" "$COMMIT_RANGE" -- \
+                | { grep -v '^github-actions\[bot\]' || true; } \
+                | cut -f2- \
+                | grep -qiE "BREAKING[- ]CHANGE"; then
               echo "See commit messages for breaking change details" > "${CHANGELOG_FILE}.breaking"
             fi
           fi
