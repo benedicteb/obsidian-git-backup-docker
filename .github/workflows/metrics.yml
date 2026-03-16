@@ -6,7 +6,8 @@
 #
 # Optionally pushes the same pull count as a gauge metric to Datadog (EU1)
 # if the DD_API_KEY secret is configured. The metric name is
-# obsidian_git_backup.docker_pulls with tags repo: and source:.
+# obsidian_git_backup.docker_pulls with tags repo:benedicteb/obsidian-git-backup
+# and source:github_actions.
 #
 # Privacy: Docker Hub's pull_count is a single anonymous aggregate counter.
 # No individual user data, IPs, or identifiers are collected. The Datadog
@@ -113,21 +114,29 @@ jobs:
 
           TIMESTAMP=$(date +%s)
 
+          # Build JSON payload with printf %d to guarantee numeric values
+          # and make injection structurally impossible
+          PAYLOAD=$(printf '{"series":[{"metric":"obsidian_git_backup.docker_pulls","type":"gauge","points":[[%d,%d]],"tags":["repo:benedicteb/obsidian-git-backup","source:github_actions"]}]}' \
+            "${TIMESTAMP}" "${PULL_COUNT}")
+
           HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
             "https://api.datadoghq.eu/api/v1/series" \
             -H "Content-Type: application/json" \
             -H "DD-API-KEY: ${DD_API_KEY}" \
-            -d '{
-              "series": [{
-                "metric": "obsidian_git_backup.docker_pulls",
-                "type": "gauge",
-                "points": [['"${TIMESTAMP}"', '"${PULL_COUNT}"']],
-                "tags": ["repo:benedicteb/obsidian-git-backup", "source:github_actions"]
-              }]
-            }')
+            -d "${PAYLOAD}") || true
+
+          # Handle network failures (curl returns 000 or empty on connection error)
+          case "${HTTP_CODE}" in
+            ''|000)
+              echo "::warning::Failed to connect to Datadog API — metric not recorded"
+              exit 0
+              ;;
+          esac
 
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo "Pushed pull count ${PULL_COUNT} to Datadog (HTTP ${HTTP_CODE})"
+          elif [ "$HTTP_CODE" -eq 403 ]; then
+            echo "::warning::Datadog API returned HTTP 403 (authentication failed) — check that DD_API_KEY is valid and has metrics:write scope"
           else
             echo "::warning::Datadog API returned HTTP ${HTTP_CODE} — metric not recorded"
           fi
