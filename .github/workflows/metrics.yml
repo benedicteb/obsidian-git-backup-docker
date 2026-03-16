@@ -4,8 +4,13 @@
 # Runs daily at 06:00 UTC. Fetches the aggregate pull_count from Docker Hub's
 # public API and appends a date,count row to docs/metrics/pulls.csv.
 #
+# Optionally pushes the same pull count as a gauge metric to Datadog (EU1)
+# if the DD_API_KEY secret is configured. The metric name is
+# obsidian_git_backup.docker_pulls with tags repo: and source:.
+#
 # Privacy: Docker Hub's pull_count is a single anonymous aggregate counter.
-# No individual user data, IPs, or identifiers are collected.
+# No individual user data, IPs, or identifiers are collected. The Datadog
+# push sends only the aggregate count — no user-identifiable information.
 #
 # The docker-publish.yml workflow ignores changes to docs/metrics/ via
 # paths-ignore, so commits from this workflow do not trigger image builds.
@@ -15,7 +20,12 @@
 # Failure policy: if the Docker Hub API is unreachable or returns an error,
 # the workflow fails and the CSV gets a gap for that day. This is acceptable
 # — pull counts are a trend metric, not a critical data source. Re-run
-# manually via workflow_dispatch to fill a gap if needed.
+# manually via workflow_dispatch to fill a gap if needed. If the Datadog
+# push fails, a warning is logged but the workflow still succeeds.
+#
+# Secrets:
+#   DD_API_KEY — Datadog API key (not Application key). Optional. If not
+#                set, the Datadog push step is skipped silently.
 # =============================================================================
 
 name: Record Docker Hub Pulls
@@ -86,6 +96,41 @@ jobs:
 
           # Pass count to the commit step for the commit message
           echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
+      - name: Push metric to Datadog
+        if: steps.fetch.outputs.count != ''
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          PULL_COUNT: ${{ steps.fetch.outputs.count }}
+        run: |
+          set -euo pipefail
+
+          # Skip gracefully if DD_API_KEY is not configured
+          if [ -z "${DD_API_KEY:-}" ]; then
+            echo "DD_API_KEY not set — skipping Datadog push"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date +%s)
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            "https://api.datadoghq.eu/api/v1/series" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${DD_API_KEY}" \
+            -d '{
+              "series": [{
+                "metric": "obsidian_git_backup.docker_pulls",
+                "type": "gauge",
+                "points": [['"${TIMESTAMP}"', '"${PULL_COUNT}"']],
+                "tags": ["repo:benedicteb/obsidian-git-backup", "source:github_actions"]
+              }]
+            }')
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Pushed pull count ${PULL_COUNT} to Datadog (HTTP ${HTTP_CODE})"
+          else
+            echo "::warning::Datadog API returned HTTP ${HTTP_CODE} — metric not recorded"
+          fi
 
       - name: Commit and push
         env:
