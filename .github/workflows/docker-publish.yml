@@ -10,6 +10,12 @@
 #   DOCKERHUB_USERNAME — Docker Hub username
 #   DOCKERHUB_TOKEN   — Docker Hub access token (not password)
 #
+# Optional secrets:
+#   DD_API_KEY — Datadog API key. If set, a "release" event is posted to
+#                Datadog (EU1) after each GitHub Release. Events appear as
+#                overlay markers on dashboard graphs for correlating releases
+#                with pull count trends. Skipped silently if not configured.
+#
 # Versioning rules (conventional commits):
 #   - feat!: or BREAKING CHANGE in body → major bump (0.1.0 → 1.0.0)
 #   - feat:                             → minor bump (0.1.0 → 0.2.0)
@@ -341,4 +347,57 @@ jobs:
             --title "$NEW_VERSION" \
             --notes-file "$CHANGELOG_FILE" \
             --target "${{ github.sha }}"
+
+      # -----------------------------------------------------------------
+      # Post release event to Datadog (optional)
+      #
+      # Sends a Datadog event that appears as a vertical marker on
+      # dashboard graphs. Correlate releases with pull count trends.
+      # Skipped if DD_API_KEY is not configured.
+      # -----------------------------------------------------------------
+      - name: Post release event to Datadog
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DD_API_KEY:-}" ]; then
+            echo "DD_API_KEY not set — skipping Datadog event"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date +%s)
+          REPO="${{ github.repository }}"
+
+          PAYLOAD=$(printf '{
+            "title": "Release %s",
+            "text": "Released [%s](https://github.com/%s/releases/tag/%s) of obsidian-git-backup",
+            "tags": ["repo:benedicteb/obsidian-git-backup", "source:github_actions", "version:%s"],
+            "alert_type": "info",
+            "source_type_name": "github",
+            "aggregation_key": "obsidian-git-backup-release",
+            "date_happened": %d
+          }' "$NEW_VERSION" "$NEW_VERSION" "$REPO" "$NEW_VERSION" "$NEW_VERSION" "$TIMESTAMP")
+
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            "https://api.datadoghq.eu/api/v1/events" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${DD_API_KEY}" \
+            -d "${PAYLOAD}") || true
+
+          case "${HTTP_CODE}" in
+            ''|000)
+              echo "::warning::Failed to connect to Datadog API — event not posted"
+              exit 0
+              ;;
+          esac
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Posted release event for ${NEW_VERSION} to Datadog (HTTP ${HTTP_CODE})"
+          elif [ "$HTTP_CODE" -eq 403 ]; then
+            echo "::warning::Datadog API returned HTTP 403 (authentication failed) — check that DD_API_KEY is valid"
+          else
+            echo "::warning::Datadog API returned HTTP ${HTTP_CODE} — event not posted"
+          fi
 
