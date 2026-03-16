@@ -1,4 +1,4 @@
-# ADR-0020: Datadog Metrics Push for Docker Hub Pull Count
+# ADR-0020: Datadog Metrics and Release Events Push
 
 ## Status
 
@@ -91,6 +91,37 @@ Implementation details:
   (skipped via `if:` when the count is empty, which happens when
   today's date is already recorded).
 
+### Release events (docker-publish.yml)
+
+In addition to the daily gauge metric, a **Datadog event** is posted
+after each GitHub Release is created in the `docker-publish.yml`
+workflow. This uses the Datadog v1 Events API (`POST /api/v1/events`).
+
+Events appear as vertical overlay markers on Datadog dashboard graphs.
+When overlaid on the `obsidian_git_backup.docker_pulls` time series,
+release events show exactly when each version shipped — enabling
+visual correlation between releases and pull count inflections.
+
+- **Endpoint**: `https://api.datadoghq.eu/api/v1/events`
+
+- **Event fields**:
+  - `title`: `"Release vX.Y.Z"`
+  - `text`: Markdown link to the GitHub release page
+  - `tags`: Same as the metric (`repo:`, `source:`) plus `version:vX.Y.Z`
+  - `alert_type`: `"info"` (neutral — not an error or warning)
+  - `source_type_name`: `"github"` (predefined Datadog source type)
+  - `aggregation_key`: `"obsidian-git-backup-release"` (groups all
+    release events together in the event stream)
+  - `date_happened`: POSIX timestamp of the release
+
+- **Same DD_API_KEY**: Reuses the same secret. Datadog API keys have
+  write access to both metrics and events endpoints.
+
+- **Same failure handling**: Network errors and HTTP errors produce
+  GitHub Actions warnings but never fail the workflow. The GitHub
+  Release is already created at this point, so the event is
+  best-effort.
+
 ## Consequences
 
 **Easier:**
@@ -105,6 +136,9 @@ Implementation details:
   the API key is removed, the CSV continues working.
 - The step is a net 30 lines of YAML/shell. No new files, no new
   dependencies, no new cron schedule.
+- Release events appear as vertical markers on dashboard graphs,
+  making it easy to correlate version releases with pull count
+  changes (e.g., a new release driving increased adoption).
 
 **Harder:**
 
