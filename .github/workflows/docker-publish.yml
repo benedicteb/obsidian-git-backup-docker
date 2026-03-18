@@ -119,28 +119,22 @@ jobs:
           esac
 
           # Scan commit subjects and bodies for bump signals.
-          # Exclude automated bot commits (e.g., daily metrics scraper) —
-          # they should not influence version bumps.
+          # Exclude noise commits that should not influence version bumps:
+          #   - chore(metrics): — daily pull count recorder bot commits
+          #   - Merge pull request / Merge branch — redundant with branch commits
           #
-          # Note: git's --invert-grep only inverts --grep, not --author.
-          # We use a tab-delimited author+subject format and grep -v to
-          # exclude bot commits, then cut to extract subjects only.
-          # Bodies are scanned separately with the same author filter.
+          # Filtering by commit message pattern (not author) so that meaningful
+          # bot-authored commits (e.g., deps: bump from the update checker) are
+          # included in version calculations and release notes.
           BUMP="patch"  # default: any commit is at least a patch release
 
-          # Subjects from non-bot commits only (|| true: safe if all are bot commits)
-          SUBJECTS=$(git log --pretty=tformat:"%an%x09%s" "$COMMIT_RANGE" \
-            | { grep -v '^github-actions\[bot\]' || true; } \
-            | cut -f2)
+          # Subjects, excluding noise commits (|| true: safe if all are noise)
+          SUBJECTS=$(git log --no-merges --pretty=tformat:"%s" "$COMMIT_RANGE" \
+            | { grep -v '^chore(metrics):' || true; })
 
-          # Bodies from non-bot commits. Note: %b is multi-line, so only the
-          # first line of each body carries the author<TAB> prefix. Continuation
-          # lines pass through grep -v unfiltered. This is safe because all
-          # current bot commits (chore(metrics):) have empty bodies. If a future
-          # bot commit has a multi-line body, the continuation lines would leak
-          # into BODIES — revisit if that ever happens.
-          BODIES=$(git log --pretty=tformat:"%an%x09%b" "$COMMIT_RANGE" \
-            | { grep -v '^github-actions\[bot\]' || true; } \
+          # Bodies, excluding noise commits.
+          BODIES=$(git log --no-merges --pretty=tformat:"%s%x09%b" "$COMMIT_RANGE" \
+            | { grep -v '^chore(metrics):' || true; } \
             | cut -f2-)
 
           # Breaking change: footer "BREAKING CHANGE:" or type suffix "!"
@@ -241,14 +235,13 @@ jobs:
           trap 'rm -f "${CHANGELOG_FILE}.breaking" "${CHANGELOG_FILE}.feat" "${CHANGELOG_FILE}.fix" "${CHANGELOG_FILE}.other"' EXIT
 
           # Categorise commits by conventional commit type into temp files.
-          # Exclude automated bot commits (e.g., daily metrics scraper) from
-          # the changelog — they are noise in release notes.
-          # Note: git's --invert-grep only inverts --grep, not --author.
-          # We use a tab-delimited format with author name and filter via
-          # grep -v to reliably exclude bot commits.
-          git log --pretty=tformat:"%an%x09%s" "$COMMIT_RANGE" -- \
-            | { grep -v '^github-actions\[bot\]' || true; } \
-            | cut -f2 \
+          # Exclude noise commits from the changelog:
+          #   - chore(metrics): — daily pull count recorder (bot noise)
+          #   - Merge commits — redundant with the actual branch commits
+          # Filtering by message pattern (not author) so meaningful bot
+          # commits (e.g., deps: bump from update checker) appear in notes.
+          git log --no-merges --pretty=tformat:"%s" "$COMMIT_RANGE" -- \
+            | { grep -v '^chore(metrics):' || true; } \
             | while IFS= read -r subject; do
             if [ -z "$subject" ]; then continue; fi
 
@@ -268,11 +261,9 @@ jobs:
             fi
           done
 
-          # Also check commit bodies for BREAKING CHANGE footer (excluding bot commits)
+          # Also check commit bodies for BREAKING CHANGE footer (excluding noise)
           if [ ! -s "${CHANGELOG_FILE}.breaking" ]; then
-            if git log --pretty=format:"%an%x09%b" "$COMMIT_RANGE" -- \
-                | { grep -v '^github-actions\[bot\]' || true; } \
-                | cut -f2- \
+            if git log --no-merges --pretty=format:"%b" "$COMMIT_RANGE" -- \
                 | grep -qiE "BREAKING[- ]CHANGE"; then
               echo "See commit messages for breaking change details" > "${CHANGELOG_FILE}.breaking"
             fi
