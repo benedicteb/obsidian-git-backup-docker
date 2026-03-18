@@ -237,8 +237,11 @@ jobs:
           jq -r -n \
             --argjson current "$CURRENT_DEPS" \
             --argjson latest "$LATEST_DEPS" '
-            # Find all unique keys
-            ([$current | keys[], $latest | keys[]] | unique) as $all_keys |
+            # Find all unique keys.
+            # Explicit parentheses are required — without them, jq parses
+            # "$current | keys[], $latest | keys[]" as piping the string
+            # output of keys[] into $latest, which fails with "has no keys".
+            ([($current | keys[]), ($latest | keys[])] | unique) as $all_keys |
             [$all_keys[] |
               . as $key |
               ($current[$key] // null) as $old |
