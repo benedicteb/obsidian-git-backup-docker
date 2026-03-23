@@ -234,6 +234,7 @@ You should see:
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_PULL_INTERVAL` | No | `3600` | How often (seconds) to pull remote changes when no local files have changed. Set to `0` to pull only before each push. Minimum `10` when enabled. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `OBSIDIAN_GIT_SYNC_MODE` | No | `bidirectional` | Sync direction: `bidirectional`, `pull-only`, or `mirror-remote`. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_FILE_TYPES` | No | `image,audio,video,pdf,unsupported` | Which attachment types **Obsidian Sync downloads** to disk. Separate from LFS. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_CONFIGS` | No | *(all categories)* | `.obsidian` config categories to sync, including community plugins. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_LFS_ENABLED` | No | `false` | Store binary attachments via **Git LFS** instead of directly in git. Separate from sync filtering. See [Git LFS](#git-lfs-large-file-storage). |
@@ -331,14 +332,32 @@ services:
 
 ## Sync Filtering
 
-By default, the container syncs **everything** — all attachment types
-(images, audio, video, PDFs, and unrecognized formats) and all `.obsidian`
-configuration (including community plugins). You can narrow this down using
-two environment variables.
+By default, the container syncs **everything** in both directions — all
+attachment types (images, audio, video, PDFs, and unrecognized formats) and all
+`.obsidian` configuration (including community plugins). You can control the
+sync direction and narrow down what gets synced using these environment variables.
 
 > **Note:** These settings control what **Obsidian Sync downloads** to disk.
 > They are separate from [Git LFS](#git-lfs-large-file-storage), which
 > controls how git *stores* files that are already on disk.
+
+### Sync mode
+
+`OBSIDIAN_GIT_SYNC_MODE` controls the sync direction between Obsidian Sync
+and the local vault:
+
+| Value | Behavior |
+|---|---|
+| `bidirectional` | Pull from Obsidian Sync and push local changes back. |
+| `pull-only` | Only pull from Obsidian Sync. Local changes are never pushed back. |
+| `mirror-remote` | Pull from Obsidian Sync; discard local changes that conflict with the remote. |
+
+The default is `bidirectional`, which matches obsidian-headless's own default.
+
+> **For backup-only setups**, `pull-only` is recommended. In `bidirectional`
+> mode, any files written directly to `/vault` (e.g., via `git pull` or a bind
+> mount) will be pushed back to Obsidian Sync and may overwrite content on your
+> other devices.
 
 ### File types
 
