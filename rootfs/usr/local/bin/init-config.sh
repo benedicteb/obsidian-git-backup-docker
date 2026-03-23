@@ -582,7 +582,6 @@ SYNC_MODE="${OBSIDIAN_GIT_SYNC_MODE:-bidirectional}"
 # Normalize: strip whitespace around commas (users may write "image, audio")
 SYNC_FILE_TYPES="$(printf '%s' "${SYNC_FILE_TYPES}" | tr -d ' ')"
 SYNC_CONFIGS="$(printf '%s' "${SYNC_CONFIGS}" | tr -d ' ')"
-SYNC_MODE="$(printf '%s' "${SYNC_MODE}" | tr -d ' ')"
 
 # Validate file types
 for _type in $(printf '%s' "${SYNC_FILE_TYPES}" | tr ',' ' '); do

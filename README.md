@@ -350,7 +350,7 @@ and the local vault:
 |---|---|
 | `bidirectional` | Pull from Obsidian Sync and push local changes back. |
 | `pull-only` | Only pull from Obsidian Sync. Local changes are never pushed back. |
-| `mirror-remote` | Pull from Obsidian Sync; discard local changes that conflict with the remote. |
+| `mirror-remote` | Pull from Obsidian Sync; revert all local changes to match the remote exactly. Locally-added files are deleted. |
 
 The default is `bidirectional`, which matches obsidian-headless's own default.
 
