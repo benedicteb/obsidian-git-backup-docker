@@ -1,0 +1,95 @@
+# =============================================================================
+# Feature Branch Docker Build
+#
+# Builds and pushes Docker images for feature branches so they can be tested
+# before merging to main. Images are tagged as :latest_{sanitized_branch_name}
+# where branch names are sanitized (slashes → dashes, lowercase, truncated).
+#
+# Required GitHub secrets (same as docker-publish.yml):
+#   DOCKERHUB_USERNAME — Docker Hub username
+#   DOCKERHUB_TOKEN   — Docker Hub access token
+# =============================================================================
+
+name: Feature Branch Build
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '.github/**'
+      - 'README.md'
+
+concurrency:
+  group: feature-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: benedicteb/obsidian-git-backup
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------
+      # Sanitize branch name for use as a Docker tag
+      #
+      # Docker tags allow [a-zA-Z0-9._-] and max 128 chars.
+      # We replace slashes with dashes and strip invalid characters.
+      # -----------------------------------------------------------------
+      - name: Sanitize branch name
+        id: branch
+        run: |
+          set -euo pipefail
+          RAW="${GITHUB_REF_NAME}"
+          # Replace slashes with dashes, lowercase, strip invalid chars, trim to 100 chars
+          SANITIZED=$(printf '%s' "$RAW" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]//g' | cut -c1-100)
+          echo "tag=latest_${SANITIZED}" >> "$GITHUB_OUTPUT"
+          echo "Docker tag: latest_${SANITIZED}" >&2
+
+      - name: Check required secrets
+        env:
+          HAS_USERNAME: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+          HAS_TOKEN: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          missing=""
+          if [ "$HAS_USERNAME" != "true" ]; then missing="$missing DOCKERHUB_USERNAME"; fi
+          if [ "$HAS_TOKEN" != "true" ]; then missing="$missing DOCKERHUB_TOKEN"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required GitHub secrets:$missing"
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.IMAGE_NAME }}:${{ steps.branch.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
