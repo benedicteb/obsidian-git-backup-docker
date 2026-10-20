@@ -160,6 +160,15 @@ ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf,unsupported"
 ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data"
 
+#
+# OBSIDIAN_GIT_SYNC_MODE: Sync direction between Obsidian Sync and the vault.
+#   Controls the --mode flag passed to `ob sync-config`.
+#   Valid values: bidirectional, pull-only, mirror-remote
+#   In a backup-only setup, pull-only is recommended — it prevents the
+#   container from pushing changes back to Obsidian Sync.
+# ---------------------------------------------------------------------------
+ENV OBSIDIAN_GIT_SYNC_MODE="bidirectional"
+
 # ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
 #
