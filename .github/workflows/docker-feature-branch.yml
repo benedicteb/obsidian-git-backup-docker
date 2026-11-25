@@ -21,6 +21,13 @@ on:
       - '.github/**'
       - 'README.md'
 
+  # Manual trigger: pick the branch in the "Use workflow from" dropdown.
+  # Also dispatched by check-headless-update.yml, because pushes made with
+  # GITHUB_TOKEN do not trigger push events for other workflows.
+  # No inputs on purpose — the branch comes from GITHUB_REF_NAME, which
+  # avoids script injection via free-text inputs.
+  workflow_dispatch:
+
 concurrency:
   group: feature-build-${{ github.ref }}
   cancel-in-progress: true
@@ -54,6 +61,14 @@ jobs:
           SANITIZED=$(printf '%s' "$RAW" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]//g' | cut -c1-100)
           echo "tag=latest_${SANITIZED}" >> "$GITHUB_OUTPUT"
           echo "Docker tag: latest_${SANITIZED}" >&2
+
+      # A manual dispatch could select main; main is published by
+      # docker-publish.yml, so stop here instead of pushing :latest_main.
+      - name: Refuse to run on main
+        if: github.ref_name == 'main'
+        run: |
+          echo "::error::Use docker-publish.yml for main; this workflow is for feature branches."
+          exit 1
 
       - name: Check required secrets
         env:
