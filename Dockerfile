@@ -142,10 +142,11 @@ ENV PGID=1000
 ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 
 # ---------------------------------------------------------------------------
-# Obsidian Sync file type and config filtering
+# Obsidian Sync filtering and sync mode
 #
-# Controls which file types and .obsidian config categories are synced.
-# These are passed to `ob sync-config` during initialization.
+# Controls which file types and .obsidian config categories are synced,
+# and the sync direction. These are passed to `ob sync-config` on every
+# container start.
 #
 # OBSIDIAN_GIT_SYNC_FILE_TYPES: Which attachment types obsidian-headless downloads.
 #   This controls Obsidian Sync, not git storage (see OBSIDIAN_GIT_LFS_EXTENSIONS).
@@ -156,9 +157,18 @@ ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 #   Valid values: app, appearance, appearance-data, hotkey,
 #                 core-plugin, core-plugin-data,
 #                 community-plugin, community-plugin-data
+#
+# OBSIDIAN_GIT_SYNC_MODE: Sync direction between Obsidian Sync and the vault.
+#   Controls the --mode flag passed to `ob sync-config`.
+#   Valid values: bidirectional, pull-only, mirror-remote
+#   Default is bidirectional, matching earlier releases (which never passed
+#   --mode). pull-only is recommended for backup-only setups: the container's
+#   own periodic git pull writes into /vault, and bidirectional pushes those
+#   changes to Obsidian Sync.
 # ---------------------------------------------------------------------------
 ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf,unsupported"
 ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data"
+ENV OBSIDIAN_GIT_SYNC_MODE="bidirectional"
 
 # ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
