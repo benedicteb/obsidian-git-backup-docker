@@ -47,6 +47,7 @@ jobs:
     permissions:
       contents: write       # Create branch and push commits
       pull-requests: write  # Open PRs
+      actions: write        # Dispatch the feature branch image build
 
     steps:
       - name: Checkout
@@ -361,3 +362,22 @@ jobs:
             --body-file "$PR_BODY"
 
           echo "PR created successfully."
+
+      # ---------------------------------------------------------------
+      # Trigger the feature-branch image build for the new branch
+      #
+      # The push above used GITHUB_TOKEN, and GitHub does not let such
+      # pushes trigger other workflows. workflow_dispatch is the documented
+      # exception, so we start the build explicitly. Resulting image:
+      #   benedicteb/obsidian-git-backup:latest_deps-obsidian-headless-<version>
+      # ---------------------------------------------------------------
+      - name: Trigger feature branch image build
+        if: steps.check.outputs.needed == 'true' && steps.existing_pr.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.latest.outputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="deps/obsidian-headless-${LATEST}"
+          gh workflow run docker-feature-branch.yml --ref "$BRANCH"
+          echo "Dispatched feature branch build for ${BRANCH}."
