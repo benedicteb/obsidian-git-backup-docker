@@ -10,18 +10,26 @@ obsidian-headless 0.0.14 supports three sync modes through
 `ob sync-config --mode`:
 
 - `bidirectional`: download remote changes and upload local changes
-- `pull-only`: download only; local changes are ignored (never uploaded)
+- `pull-only`: download only; nothing is uploaded. When a file changes on
+  Obsidian Sync, that version replaces the local copy (no merge)
 - `mirror-remote`: download only; local edits are reverted, locally-deleted
   files are restored, and local-only files are deleted
+
+Both download-only modes only act on files that pass obsidian-headless's
+sync filter (file types, config categories, excluded folders). Dotfiles and
+dotfolders such as `.git/`, `.gitignore` and `.gitattributes` are skipped by
+the local scan and rejected by the filter, so they are never touched.
 
 Before this change the image never passed `--mode`, so every install ran
 obsidian-headless's default, `bidirectional`.
 
 This container writes into `/vault` itself: `git-watcher.sh` runs
 `git pull` periodically (`OBSIDIAN_GIT_PULL_INTERVAL`) and before every
-push. With `bidirectional`, anything changed on the git remote is pushed to
-Obsidian Sync. With `mirror-remote`, files that exist only in git are
-deleted locally, and the watcher commits and pushes those deletions.
+push. With `bidirectional`, anything changed on the git remote is uploaded to
+Obsidian Sync. With `pull-only`, git-side edits stay local but are replaced
+if the same file later changes on Obsidian Sync. With `mirror-remote`, files
+within the sync filter that exist only in git are deleted locally, and the
+watcher commits and pushes those deletions.
 
 ## Decision
 
