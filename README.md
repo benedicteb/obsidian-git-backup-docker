@@ -342,9 +342,12 @@ services:
 The sync state lets the container pick up where it left off after it is
 recreated (for example after an image update), instead of re-checking every
 file. It includes the vault's derived encryption key, so treat `/config` like
-the SSH key: keep it private and don't commit it anywhere. Deleting
-`headless/` is safe; the next start sets it up again and re-checks every
-file once.
+the SSH key: keep it private and don't commit it anywhere.
+
+Deleting `headless/` is safe: the next start sets it up again and re-checks
+every file once. If `/vault` is lost or re-cloned while `/config` is kept,
+the container notices and resets the sync state automatically, so files
+missing from the new clone are not treated as deletions.
 
 ## Sync Filtering
 
