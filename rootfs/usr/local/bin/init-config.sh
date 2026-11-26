@@ -505,26 +505,47 @@ run_as_user mkdir -p "${XDG_CONFIG_HOME}"
 run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}"
 log "obsidian-headless state: ${XDG_CONFIG_HOME}"
 
-# Saved sync state is only valid for the copy of the vault it was built
-# from. If /vault was re-cloned or replaced while /config survived, ob would
-# read files missing from /vault as local deletions and, in bidirectional
-# mode, upload those deletions to Obsidian Sync.
+# Saved sync state is only safe to reuse if /vault still looks the way ob
+# last saw it. With saved state, a file ob knows about that is missing from
+# /vault counts as a local deletion and, in bidirectional mode, is deleted
+# on Obsidian Sync. Without saved state, the next sync is an initial sync:
+# it merges (most recent wins) and deletes nothing, as before state was
+# persisted. So discard the state when:
 #
-# A random ID stored both in /vault/.git (never committed, unique to this
-# clone) and next to the state pairs the two. On mismatch the state is
-# reset, so the next sync is an initial sync (merge, most recent wins) as
-# it was before state was persisted.
+#   - /vault was re-cloned or replaced: a random ID kept in /vault/.git
+#     (never committed, unique to this clone) and next to the state differ;
+#   - obsidian-headless was updated or rolled back: state.db has no schema
+#     migrations, so don't carry it across versions;
+#   - files tracked in git are missing from /vault (deleted while the
+#     container was stopped, e.g. by a git reset on the host).
 VAULT_STATE_ID="/vault/.git/obsidian-git-backup-state-id"
 SAVED_STATE_ID="${XDG_CONFIG_HOME}/vault-state-id"
+SAVED_OB_VERSION="${XDG_CONFIG_HOME}/ob-version"
+OB_VERSION="$(run_as_user ob --version 2>/dev/null)" || OB_VERSION="unknown"
+
+state_reset_reason=""
+vault_id_matches=true
 if [ ! -s "${VAULT_STATE_ID}" ] || [ ! -s "${SAVED_STATE_ID}" ] \
     || ! cmp -s "${VAULT_STATE_ID}" "${SAVED_STATE_ID}"; then
-  if [ -d "${HEADLESS_SYNC_DIR}" ]; then
-    log "Vault does not match the saved sync state (re-cloned or replaced) — resetting sync state"
-    rm -rf "${HEADLESS_SYNC_DIR}"
-  fi
-  cat /proc/sys/kernel/random/uuid \
-    | run_as_user tee "${VAULT_STATE_ID}" "${SAVED_STATE_ID}" > /dev/null
+  vault_id_matches=false
+  state_reset_reason="/vault was re-cloned or replaced since the last run"
+elif [ "$(cat "${SAVED_OB_VERSION}" 2>/dev/null)" != "${OB_VERSION}" ]; then
+  state_reset_reason="obsidian-headless changed to version ${OB_VERSION}"
+elif [ -n "$(run_as_user git -C /vault ls-files --deleted 2>/dev/null | head -n 1)" ]; then
+  state_reset_reason="files tracked in git are missing from /vault"
 fi
+
+if [ -n "${state_reset_reason}" ] && [ -d "${HEADLESS_SYNC_DIR}" ]; then
+  log "${state_reset_reason} — discarding saved sync state."
+  log "The next sync re-checks every file and merges; nothing is deleted."
+  run_as_user rm -rf "${HEADLESS_SYNC_DIR}"
+fi
+
+if [ "${vault_id_matches}" = false ]; then
+  run_as_user tee "${VAULT_STATE_ID}" "${SAVED_STATE_ID}" \
+    < /proc/sys/kernel/random/uuid > /dev/null
+fi
+printf '%s\n' "${OB_VERSION}" | run_as_user tee "${SAVED_OB_VERSION}" > /dev/null
 
 # Drop every stored vault config (state.db stays). sync-setup below writes
 # a fresh config.json for the vault it resolves, so afterwards exactly one
