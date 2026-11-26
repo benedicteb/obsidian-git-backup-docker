@@ -7,5 +7,9 @@
 #   - Signals: SIGTERM reaches ob directly (not lost to sed)
 #   - Exit code: ob's real exit code is returned to s6
 #   - No SIGPIPE: ob writes to a FIFO, not a pipe to sed
+#
+# headless-env.sh exports XDG_CONFIG_HOME so ob uses the persistent state
+# directory in /config that init-config set up.
+. /usr/local/lib/headless-env.sh
 exec su-exec obsidian /usr/local/bin/log-prefix.sh "[obsidian-sync]" \
   ob sync --continuous --path /vault

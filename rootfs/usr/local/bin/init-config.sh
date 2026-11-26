@@ -496,6 +496,15 @@ chown obsidian:obsidian "${GITIGNORE}"
 # ---------------------------------------------------------------------------
 log "Setting up obsidian-headless sync..."
 
+# Keep obsidian-headless state in /config so it survives container
+# recreation (see headless-env.sh). Sets and exports XDG_CONFIG_HOME, which
+# run_as_user passes on to ob. The directory holds the derived vault
+# encryption key, so restrict it to the obsidian user.
+. /usr/local/lib/headless-env.sh
+run_as_user mkdir -p "${XDG_CONFIG_HOME}"
+run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}"
+log "obsidian-headless state: ${XDG_CONFIG_HOME}"
+
 # Build args list properly to handle values with spaces and special chars
 set -- --vault "${OBSIDIAN_GIT_VAULT_NAME}" --path /vault
 
