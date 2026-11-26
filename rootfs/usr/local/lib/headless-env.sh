@@ -25,11 +25,12 @@
 : "${OBSIDIAN_GIT_VAULT_NAME:?headless-env.sh: OBSIDIAN_GIT_VAULT_NAME must be set}"
 
 # Make the vault name a safe single path component: replace anything outside
-# [A-Za-z0-9._-] with '_', and never allow '.' or '..'.
-_headless_vault_dir="$(printf '%s' "${OBSIDIAN_GIT_VAULT_NAME}" | tr -c 'A-Za-z0-9._-' '_')"
-case "${_headless_vault_dir}" in
-  .|..) _headless_vault_dir="_${_headless_vault_dir}" ;;
-esac
+# [A-Za-z0-9._-] with '_'. BusyBox tr works per byte, so different non-ASCII
+# names can map to the same string (e.g. two CJK names of equal length).
+# Append a checksum of the raw name to keep them apart. The suffix also
+# rules out '.' and '..'.
+_headless_vault_sum="$(printf '%s' "${OBSIDIAN_GIT_VAULT_NAME}" | cksum | cut -d' ' -f1)"
+_headless_vault_dir="$(printf '%s' "${OBSIDIAN_GIT_VAULT_NAME}" | tr -c 'A-Za-z0-9._-' '_')-${_headless_vault_sum}"
 
 XDG_CONFIG_HOME="/config/headless/${_headless_vault_dir}"
 export XDG_CONFIG_HOME
@@ -37,4 +38,4 @@ export XDG_CONFIG_HOME
 # obsidian-headless appends "obsidian-headless/sync/<vault-id>/" itself.
 HEADLESS_SYNC_DIR="${XDG_CONFIG_HOME}/obsidian-headless/sync"
 
-unset _headless_vault_dir
+unset _headless_vault_dir _headless_vault_sum
