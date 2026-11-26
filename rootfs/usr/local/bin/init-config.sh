@@ -586,6 +586,13 @@ for config_file in "${HEADLESS_SYNC_DIR}"/*/config.json; do
   rm -rf "${stale_dir}"
 done
 
+# ob sync appends everything it prints to sync.log next to state.db, with
+# no rotation. Now that this directory is persistent, that file would grow
+# forever, and it only duplicates the container log. Send it to /dev/null.
+if [ -n "${current_config}" ]; then
+  run_as_user ln -sf /dev/null "$(dirname "${current_config}")/sync.log"
+fi
+
 # ---------------------------------------------------------------------------
 # 9. Configure sync mode, file types and config categories
 #
