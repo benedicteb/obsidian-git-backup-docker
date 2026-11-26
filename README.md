@@ -634,6 +634,21 @@ grep -q 'max_user_watches' /boot/config/go || \
   echo 'echo 524288 > /proc/sys/fs/inotify/max_user_watches' >> /boot/config/go
 ```
 
+**A setting seems to be ignored:**
+
+The startup log prints the active settings, for example `Mode:`, `File types:`
+and `Configs:` under "Configuring sync settings...". If a value shows the
+default instead of what you set, the variable name may contain a stray space
+(e.g. ` OBSIDIAN_GIT_SYNC_MODE`), which Docker treats as a different variable.
+Check what the container actually received:
+
+```sh
+docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep OBSIDIAN_GIT_
+```
+
+No line should start with a space. Prefer the template's own fields over
+adding variables by hand.
+
 ## Publishing
 
 Pushes to `main` automatically build and publish the Docker image to
