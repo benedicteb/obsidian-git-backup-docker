@@ -348,19 +348,30 @@ and the local vault:
 
 | Value | Behavior |
 |---|---|
-| `bidirectional` | Pull from Obsidian Sync and push local changes back. |
-| `pull-only` | Only pull from Obsidian Sync. Local changes are never pushed back. |
-| `mirror-remote` | Pull from Obsidian Sync; revert all local changes to match the remote exactly. Locally-added files are deleted. |
+| `bidirectional` | Download from Obsidian Sync and upload local changes to it. |
+| `pull-only` | Only download from Obsidian Sync. Nothing is uploaded. When a file changes on Obsidian Sync, that version replaces the local copy. |
+| `mirror-remote` | Only download from Obsidian Sync, and undo local changes so the vault matches Obsidian Sync. Local edits are reverted and files that exist only locally are deleted. |
+
+"Remote" in `mirror-remote` means Obsidian Sync, not your git remote. Both
+`pull-only` and `mirror-remote` only touch files covered by your sync filters
+(file types, config categories below). Dotfiles such as `.git/`,
+`.gitignore` and `.gitattributes` are never touched.
 
 The default is `bidirectional`, which matches obsidian-headless's own default
 and the behaviour of earlier releases of this image.
 
 > **For backup-only setups, `pull-only` is recommended.** The container writes
-> into `/vault` itself: its periodic `git pull` brings in anything changed on
-> the git remote. In `bidirectional` mode those changes are pushed to Obsidian
-> Sync and may overwrite content on your other devices. In `mirror-remote` mode, files that
-> exist only in git are deleted locally, and the deletion is committed and
-> pushed to your git remote.
+> into `/vault` itself: its `git pull` (periodic, and before every push) brings
+> in anything changed on the git remote. What happens to those changes depends
+> on the mode:
+>
+> - `bidirectional`: they are uploaded to Obsidian Sync and may overwrite
+>   content on your other devices.
+> - `pull-only`: they stay local and are never uploaded. If the same file
+>   later changes on Obsidian Sync, that version replaces the git edit (git
+>   history keeps both).
+> - `mirror-remote`: files that exist only in git are deleted locally, and
+>   the deletion is committed and pushed to your git remote.
 
 ### File types
 
