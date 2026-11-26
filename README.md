@@ -337,7 +337,8 @@ attachment types (images, audio, video, PDFs, and unrecognized formats) and all
 `.obsidian` configuration (including community plugins). You can control the
 sync direction and narrow down what gets synced using these environment variables.
 
-> **Note:** These settings control what **Obsidian Sync downloads** to disk.
+> **Note:** The file type and config settings control what **Obsidian Sync
+> downloads** to disk; the sync mode controls whether anything is uploaded.
 > They are separate from [Git LFS](#git-lfs-large-file-storage), which
 > controls how git *stores* files that are already on disk.
 
