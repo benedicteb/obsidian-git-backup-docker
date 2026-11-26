@@ -526,6 +526,12 @@ if [ ! -s "${VAULT_STATE_ID}" ] || [ ! -s "${SAVED_STATE_ID}" ] \
     | run_as_user tee "${VAULT_STATE_ID}" "${SAVED_STATE_ID}" > /dev/null
 fi
 
+# Drop every stored vault config (state.db stays). sync-setup below writes
+# a fresh config.json for the vault it resolves, so afterwards exactly one
+# vault directory has a config.json: the current one. See the cleanup after
+# sync-setup.
+run_as_user rm -f "${HEADLESS_SYNC_DIR}"/*/config.json
+
 # Build args list properly to handle values with spaces and special chars
 set -- --vault "${OBSIDIAN_GIT_VAULT_NAME}" --path /vault
 
@@ -593,18 +599,22 @@ fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 
-# Remove stale vault configs. ob finds a vault's config by its local path
-# (/vault) and uses the first match, so a leftover config for another vault
-# ID (e.g. the vault was deleted and recreated under the same name) could be
-# picked instead of the current one. sync-setup just wrote the current
-# config, so it is the newest; every other one in this directory is stale.
-current_config="$(ls -t "${HEADLESS_SYNC_DIR}"/*/config.json 2>/dev/null | head -n 1)" || true
-for config_file in "${HEADLESS_SYNC_DIR}"/*/config.json; do
-  [ -f "${config_file}" ] || continue
-  [ "${config_file}" = "${current_config}" ] && continue
-  stale_dir="$(dirname "${config_file}")"
-  log "Removing stale obsidian-headless config: ${stale_dir}"
-  rm -rf "${stale_dir}"
+# Remove state for other vault IDs (e.g. the vault was deleted and recreated
+# under the same name). ob finds a vault's config by its local path (/vault)
+# and uses the first match, so a leftover could be picked instead of the
+# current one. All configs were removed before sync-setup, which then wrote
+# only the current one, so any directory without config.json is stale.
+# Runs as the obsidian user: the tree is theirs, and root must not follow
+# links planted in it.
+current_config=""
+for vault_state_dir in "${HEADLESS_SYNC_DIR}"/*/; do
+  [ -d "${vault_state_dir}" ] || continue
+  if [ -f "${vault_state_dir}config.json" ]; then
+    current_config="${vault_state_dir}config.json"
+    continue
+  fi
+  log "Removing obsidian-headless state for another vault: ${vault_state_dir}"
+  run_as_user rm -rf "${vault_state_dir}"
 done
 
 # ob sync appends everything it prints to sync.log next to state.db, with
