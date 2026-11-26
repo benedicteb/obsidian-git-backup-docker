@@ -234,6 +234,7 @@ You should see:
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_PULL_INTERVAL` | No | `3600` | How often (seconds) to pull remote changes when no local files have changed. Set to `0` to pull only before each push. Minimum `10` when enabled. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `OBSIDIAN_GIT_DEVICE_NAME` | No | `obsidian-git-backup (<vault name>)` | How this container appears in Obsidian Sync's version history. Previously it was the container's random hostname, which changed on every recreate. |
 | `OBSIDIAN_GIT_SYNC_MODE` | No | `bidirectional` | Sync direction: `bidirectional`, `pull-only`, or `mirror-remote`. **`pull-only` is recommended for backup-only setups.** See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_FILE_TYPES` | No | `image,audio,video,pdf,unsupported` | Which attachment types **Obsidian Sync downloads** to disk. Separate from LFS. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_CONFIGS` | No | *(all categories)* | `.obsidian` config categories to sync, including community plugins. See [Sync Filtering](#sync-filtering). |
@@ -249,7 +250,7 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 | Path | Required | Description |
 |---|---|---|
-| `/config` | **Yes** | Persistent configuration and SSH keys. Must survive restarts. Named volume (default) or bind mount (see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
+| `/config` | **Yes** | Persistent configuration, SSH keys and obsidian-headless sync state (in `headless/`). Must survive restarts. Keep it on a local filesystem (see [What is stored in `/config`](#what-is-stored-in-config)). Named volume (default) or bind mount (see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
 ## User / Group Identifiers (PUID/PGID)
@@ -328,6 +329,43 @@ services:
     volumes:
       - config-work:/config
       - vault-work:/vault
+```
+
+### What is stored in `/config`
+
+| Path | Contents |
+|---|---|
+| `id_ed25519`, `id_ed25519.pub` | SSH key for the git remote |
+| `ssh_config`, `known_hosts` | SSH settings |
+| `headless/<vault name>-<checksum>/` | obsidian-headless config and sync state for that vault. Spaces and special characters in the name become `_`; the exact path is printed at startup. |
+
+The sync state lets the container pick up where it left off after it is
+recreated (for example after an image update), instead of re-checking every
+file. It includes the vault's derived encryption key, so treat `/config` like
+the SSH key: keep it private and don't commit it anywhere.
+
+The sync state is a SQLite database, which can be corrupted on network or
+FUSE filesystems. Keep `/config` on a local disk: a named volume or a local
+bind mount. **On Unraid**, prefer `/mnt/cache/appdata/...` (or an exclusive
+share) over `/mnt/user/appdata/...`.
+
+Deleting `headless/` is safe: the next start sets it up again and re-checks
+every file once. The container also discards the sync state by itself,
+so files missing from `/vault` are never treated as deletions, when:
+
+- `/vault` was lost or re-cloned while `/config` was kept;
+- files tracked in git are missing from `/vault` (e.g. deleted while the
+  container was stopped);
+- the image comes with a different obsidian-headless version.
+
+After restoring `/vault` from a backup, delete `headless/` yourself: a
+restored copy of the same clone is not detected.
+
+To run `ob` commands by hand, point them at the saved state (use the path
+from the startup log line `obsidian-headless state: ...`):
+
+```sh
+docker exec -u obsidian -e XDG_CONFIG_HOME=/config/headless/<vault name>-<checksum> <container> ob sync-config --path /vault
 ```
 
 ## Sync Filtering
@@ -600,9 +638,11 @@ again with:
 - Different vault path (e.g., `/mnt/user/appdata/obsidian-git-backup/vault-work`)
 - A different vault name and git remote URL
 
-Containers can share the same config path — it only contains the SSH key
-and SSH settings, which are safe to share. Only the vault path must be
-unique per container.
+Containers can share the same config path. It holds the SSH key and SSH
+settings, which are safe to share, and each vault's obsidian-headless sync
+state in its own folder under `headless/`. Only the vault path must be
+unique per container. Two containers for the *same* vault must not share
+`/config` (they must not run at the same time anyway).
 
 Each container counts as one device on your Obsidian Sync plan — check
 your plan's device limit at [obsidian.md/account](https://obsidian.md/account).

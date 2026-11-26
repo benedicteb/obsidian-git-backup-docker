@@ -496,6 +496,66 @@ chown obsidian:obsidian "${GITIGNORE}"
 # ---------------------------------------------------------------------------
 log "Setting up obsidian-headless sync..."
 
+# Keep obsidian-headless state in /config so it survives container
+# recreation (see headless-env.sh). Sets and exports XDG_CONFIG_HOME, which
+# run_as_user passes on to ob. The directory holds the derived vault
+# encryption key, so restrict it to the obsidian user.
+. /usr/local/lib/headless-env.sh
+run_as_user mkdir -p "${XDG_CONFIG_HOME}"
+# Some network filesystems (e.g. CIFS without unix extensions) reject chmod;
+# warn instead of failing, since sync itself still works.
+run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}" 2>/dev/null || \
+  log "Warning: could not restrict permissions on ${XDG_CONFIG_HOME}. It contains the vault's derived encryption key; keep /config private."
+log "obsidian-headless state: ${XDG_CONFIG_HOME}"
+
+# Saved sync state is only safe to reuse if /vault still looks the way ob
+# last saw it. With saved state, a file ob knows about that is missing from
+# /vault counts as a local deletion and, in bidirectional mode, is deleted
+# on Obsidian Sync. Without saved state, the next sync is an initial sync:
+# it merges (most recent wins) and deletes nothing, as before state was
+# persisted. So discard the state when:
+#
+#   - /vault was re-cloned or replaced: a random ID kept in /vault/.git
+#     (never committed, unique to this clone) and next to the state differ;
+#   - obsidian-headless was updated or rolled back: state.db has no schema
+#     migrations, so don't carry it across versions;
+#   - files tracked in git are missing from /vault (deleted while the
+#     container was stopped, e.g. by a git reset on the host).
+VAULT_STATE_ID="/vault/.git/obsidian-git-backup-state-id"
+SAVED_STATE_ID="${XDG_CONFIG_HOME}/vault-state-id"
+SAVED_OB_VERSION="${XDG_CONFIG_HOME}/ob-version"
+OB_VERSION="$(run_as_user ob --version 2>/dev/null)" || OB_VERSION="unknown"
+
+state_reset_reason=""
+vault_id_matches=true
+if [ ! -s "${VAULT_STATE_ID}" ] || [ ! -s "${SAVED_STATE_ID}" ] \
+    || ! cmp -s "${VAULT_STATE_ID}" "${SAVED_STATE_ID}"; then
+  vault_id_matches=false
+  state_reset_reason="/vault was re-cloned or replaced since the last run"
+elif [ "$(cat "${SAVED_OB_VERSION}" 2>/dev/null)" != "${OB_VERSION}" ]; then
+  state_reset_reason="obsidian-headless changed to version ${OB_VERSION}"
+elif [ -n "$(run_as_user git -C /vault ls-files --deleted 2>/dev/null | head -n 1)" ]; then
+  state_reset_reason="files tracked in git are missing from /vault"
+fi
+
+if [ -n "${state_reset_reason}" ] && [ -d "${HEADLESS_SYNC_DIR}" ]; then
+  log "${state_reset_reason} — discarding saved sync state."
+  log "The next sync re-checks every file and merges; nothing is deleted."
+  run_as_user rm -rf "${HEADLESS_SYNC_DIR}"
+fi
+
+if [ "${vault_id_matches}" = false ]; then
+  run_as_user tee "${VAULT_STATE_ID}" "${SAVED_STATE_ID}" \
+    < /proc/sys/kernel/random/uuid > /dev/null
+fi
+printf '%s\n' "${OB_VERSION}" | run_as_user tee "${SAVED_OB_VERSION}" > /dev/null
+
+# Drop every stored vault config (state.db stays). sync-setup below writes
+# a fresh config.json for the vault it resolves, so afterwards exactly one
+# vault directory has a config.json: the current one. See the cleanup after
+# sync-setup.
+run_as_user rm -f "${HEADLESS_SYNC_DIR}"/*/config.json
+
 # Build args list properly to handle values with spaces and special chars
 set -- --vault "${OBSIDIAN_GIT_VAULT_NAME}" --path /vault
 
@@ -563,6 +623,31 @@ fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 
+# Remove state for other vault IDs (e.g. the vault was deleted and recreated
+# under the same name). ob finds a vault's config by its local path (/vault)
+# and uses the first match, so a leftover could be picked instead of the
+# current one. All configs were removed before sync-setup, which then wrote
+# only the current one, so any directory without config.json is stale.
+# Runs as the obsidian user: the tree is theirs, and root must not follow
+# links planted in it.
+current_config=""
+for vault_state_dir in "${HEADLESS_SYNC_DIR}"/*/; do
+  [ -d "${vault_state_dir}" ] || continue
+  if [ -f "${vault_state_dir}config.json" ]; then
+    current_config="${vault_state_dir}config.json"
+    continue
+  fi
+  log "Removing obsidian-headless state for another vault: ${vault_state_dir}"
+  run_as_user rm -rf "${vault_state_dir}"
+done
+
+# ob sync appends everything it prints to sync.log next to state.db, with
+# no rotation. Now that this directory is persistent, that file would grow
+# forever, and it only duplicates the container log. Send it to /dev/null.
+if [ -n "${current_config}" ]; then
+  run_as_user ln -sf /dev/null "$(dirname "${current_config}")/sync.log"
+fi
+
 # ---------------------------------------------------------------------------
 # 9. Configure sync mode, file types and config categories
 #
@@ -579,6 +664,9 @@ log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf,unsupported}"
 SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data}"
 SYNC_MODE="${OBSIDIAN_GIT_SYNC_MODE:-bidirectional}"
+# Without a device name, ob uses the container hostname, which changes every
+# time the container is recreated. Use a stable default instead.
+DEVICE_NAME="${OBSIDIAN_GIT_DEVICE_NAME:-obsidian-git-backup (${OBSIDIAN_GIT_VAULT_NAME})}"
 
 # Normalize: strip whitespace around commas (users may write "image, audio")
 SYNC_FILE_TYPES="$(printf '%s' "${SYNC_FILE_TYPES}" | tr -d ' ')"
@@ -617,6 +705,7 @@ log "Configuring sync settings..."
 log "  Mode:       ${SYNC_MODE}"
 log "  File types: ${SYNC_FILE_TYPES}"
 log "  Configs:    ${SYNC_CONFIGS}"
+log "  Device:     ${DEVICE_NAME}"
 
 # Reset $@ for step 9 — must not inherit step 8's --vault/--password args
 set -- --path /vault
@@ -629,6 +718,9 @@ set -- "$@" --configs "${SYNC_CONFIGS}"
 
 # --mode: sync direction (bidirectional, pull-only, mirror-remote)
 set -- "$@" --mode "${SYNC_MODE}"
+
+# --device-name: how this client appears in Obsidian Sync's version history
+set -- "$@" --device-name "${DEVICE_NAME}"
 
 # ob sync-config is a purely local config file operation — no auth token
 # needed. But run as obsidian user so config files keep correct ownership.

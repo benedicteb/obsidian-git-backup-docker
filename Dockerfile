@@ -165,10 +165,17 @@ ENV OBSIDIAN_GIT_PULL_INTERVAL=3600
 #   --mode). pull-only is recommended for backup-only setups: the container's
 #   own periodic git pull writes into /vault, and bidirectional pushes those
 #   changes to Obsidian Sync.
+#
+# OBSIDIAN_GIT_DEVICE_NAME: How this container appears in Obsidian Sync's
+#   version history. Passed as --device-name to `ob sync-config`.
+#   Empty (default) means "obsidian-git-backup (<vault name>)". Without it,
+#   obsidian-headless would use the container hostname, which changes every
+#   time the container is recreated.
 # ---------------------------------------------------------------------------
 ENV OBSIDIAN_GIT_SYNC_FILE_TYPES="image,audio,video,pdf,unsupported"
 ENV OBSIDIAN_GIT_SYNC_CONFIGS="app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data"
 ENV OBSIDIAN_GIT_SYNC_MODE="bidirectional"
+ENV OBSIDIAN_GIT_DEVICE_NAME=""
 
 # ---------------------------------------------------------------------------
 # Git LFS — Large File Storage for binary assets (opt-in)
