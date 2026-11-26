@@ -502,7 +502,10 @@ log "Setting up obsidian-headless sync..."
 # encryption key, so restrict it to the obsidian user.
 . /usr/local/lib/headless-env.sh
 run_as_user mkdir -p "${XDG_CONFIG_HOME}"
-run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}"
+# Some network filesystems (e.g. CIFS without unix extensions) reject chmod;
+# warn instead of failing, since sync itself still works.
+run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}" 2>/dev/null || \
+  log "Warning: could not restrict permissions on ${XDG_CONFIG_HOME}. It contains the vault's derived encryption key; keep /config private."
 log "obsidian-headless state: ${XDG_CONFIG_HOME}"
 
 # Saved sync state is only safe to reuse if /vault still looks the way ob
