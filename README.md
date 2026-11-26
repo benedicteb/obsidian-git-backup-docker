@@ -234,6 +234,7 @@ You should see:
 | `OBSIDIAN_GIT_DEBOUNCE_SECS` | No | `30` | Seconds of quiet before committing. Must be a positive integer. For large vaults, consider 60+. |
 | `OBSIDIAN_GIT_PULL_INTERVAL` | No | `3600` | How often (seconds) to pull remote changes when no local files have changed. Set to `0` to pull only before each push. Minimum `10` when enabled. |
 | `OBSIDIAN_GIT_E2EE_PASSWORD` | No | — | E2E encryption password |
+| `OBSIDIAN_GIT_DEVICE_NAME` | No | `obsidian-git-backup (<vault name>)` | How this container appears in Obsidian Sync's version history. |
 | `OBSIDIAN_GIT_SYNC_MODE` | No | `bidirectional` | Sync direction: `bidirectional`, `pull-only`, or `mirror-remote`. **`pull-only` is recommended for backup-only setups.** See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_FILE_TYPES` | No | `image,audio,video,pdf,unsupported` | Which attachment types **Obsidian Sync downloads** to disk. Separate from LFS. See [Sync Filtering](#sync-filtering). |
 | `OBSIDIAN_GIT_SYNC_CONFIGS` | No | *(all categories)* | `.obsidian` config categories to sync, including community plugins. See [Sync Filtering](#sync-filtering). |
