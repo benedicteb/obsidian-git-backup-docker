@@ -250,7 +250,7 @@ the `OBSIDIAN_GIT_` prefix because it's not a variable defined by this project.
 
 | Path | Required | Description |
 |---|---|---|
-| `/config` | **Yes** | Persistent configuration and SSH keys. Must survive restarts. Named volume (default) or bind mount (see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
+| `/config` | **Yes** | Persistent configuration, SSH keys and obsidian-headless sync state (in `headless/<vault name>/`). Must survive restarts. Named volume (default) or bind mount (see [Option B](#option-b-bring-your-own-ssh-key-bind-mount)). |
 | `/vault` | No | Vault data and git working tree. Can be re-synced/re-cloned if lost. |
 
 ## User / Group Identifiers (PUID/PGID)
@@ -330,6 +330,21 @@ services:
       - config-work:/config
       - vault-work:/vault
 ```
+
+### What is stored in `/config`
+
+| Path | Contents |
+|---|---|
+| `id_ed25519`, `id_ed25519.pub` | SSH key for the git remote |
+| `ssh_config`, `known_hosts` | SSH settings |
+| `headless/<vault name>/` | obsidian-headless config and sync state for that vault |
+
+The sync state lets the container pick up where it left off after it is
+recreated (for example after an image update), instead of re-checking every
+file. It includes the vault's derived encryption key, so treat `/config` like
+the SSH key: keep it private and don't commit it anywhere. Deleting
+`headless/` is safe; the next start sets it up again and re-checks every
+file once.
 
 ## Sync Filtering
 
@@ -601,9 +616,10 @@ again with:
 - Different vault path (e.g., `/mnt/user/appdata/obsidian-git-backup/vault-work`)
 - A different vault name and git remote URL
 
-Containers can share the same config path — it only contains the SSH key
-and SSH settings, which are safe to share. Only the vault path must be
-unique per container.
+Containers can share the same config path. It holds the SSH key and SSH
+settings, which are safe to share, and each vault's obsidian-headless sync
+state in its own `headless/<vault name>/` folder. Only the vault path must
+be unique per container.
 
 Each container counts as one device on your Obsidian Sync plan — check
 your plan's device limit at [obsidian.md/account](https://obsidian.md/account).
