@@ -505,6 +505,27 @@ run_as_user mkdir -p "${XDG_CONFIG_HOME}"
 run_as_user chmod 700 /config/headless "${XDG_CONFIG_HOME}"
 log "obsidian-headless state: ${XDG_CONFIG_HOME}"
 
+# Saved sync state is only valid for the copy of the vault it was built
+# from. If /vault was re-cloned or replaced while /config survived, ob would
+# read files missing from /vault as local deletions and, in bidirectional
+# mode, upload those deletions to Obsidian Sync.
+#
+# A random ID stored both in /vault/.git (never committed, unique to this
+# clone) and next to the state pairs the two. On mismatch the state is
+# reset, so the next sync is an initial sync (merge, most recent wins) as
+# it was before state was persisted.
+VAULT_STATE_ID="/vault/.git/obsidian-git-backup-state-id"
+SAVED_STATE_ID="${XDG_CONFIG_HOME}/vault-state-id"
+if [ ! -s "${VAULT_STATE_ID}" ] || [ ! -s "${SAVED_STATE_ID}" ] \
+    || ! cmp -s "${VAULT_STATE_ID}" "${SAVED_STATE_ID}"; then
+  if [ -d "${HEADLESS_SYNC_DIR}" ]; then
+    log "Vault does not match the saved sync state (re-cloned or replaced) — resetting sync state"
+    rm -rf "${HEADLESS_SYNC_DIR}"
+  fi
+  cat /proc/sys/kernel/random/uuid \
+    | run_as_user tee "${VAULT_STATE_ID}" "${SAVED_STATE_ID}" > /dev/null
+fi
+
 # Build args list properly to handle values with spaces and special chars
 set -- --vault "${OBSIDIAN_GIT_VAULT_NAME}" --path /vault
 
