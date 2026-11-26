@@ -609,6 +609,9 @@ fi
 SYNC_FILE_TYPES="${OBSIDIAN_GIT_SYNC_FILE_TYPES:-image,audio,video,pdf,unsupported}"
 SYNC_CONFIGS="${OBSIDIAN_GIT_SYNC_CONFIGS:-app,appearance,appearance-data,hotkey,core-plugin,core-plugin-data,community-plugin,community-plugin-data}"
 SYNC_MODE="${OBSIDIAN_GIT_SYNC_MODE:-bidirectional}"
+# Without a device name, ob uses the container hostname, which changes every
+# time the container is recreated. Use a stable default instead.
+DEVICE_NAME="${OBSIDIAN_GIT_DEVICE_NAME:-obsidian-git-backup (${OBSIDIAN_GIT_VAULT_NAME})}"
 
 # Normalize: strip whitespace around commas (users may write "image, audio")
 SYNC_FILE_TYPES="$(printf '%s' "${SYNC_FILE_TYPES}" | tr -d ' ')"
@@ -647,6 +650,7 @@ log "Configuring sync settings..."
 log "  Mode:       ${SYNC_MODE}"
 log "  File types: ${SYNC_FILE_TYPES}"
 log "  Configs:    ${SYNC_CONFIGS}"
+log "  Device:     ${DEVICE_NAME}"
 
 # Reset $@ for step 9 — must not inherit step 8's --vault/--password args
 set -- --path /vault
@@ -659,6 +663,9 @@ set -- "$@" --configs "${SYNC_CONFIGS}"
 
 # --mode: sync direction (bidirectional, pull-only, mirror-remote)
 set -- "$@" --mode "${SYNC_MODE}"
+
+# --device-name: how this client appears in Obsidian Sync's version history
+set -- "$@" --device-name "${DEVICE_NAME}"
 
 # ob sync-config is a purely local config file operation — no auth token
 # needed. But run as obsidian user so config files keep correct ownership.
