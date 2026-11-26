@@ -572,6 +572,20 @@ fi
 
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 
+# Remove stale vault configs. ob finds a vault's config by its local path
+# (/vault) and uses the first match, so a leftover config for another vault
+# ID (e.g. the vault was deleted and recreated under the same name) could be
+# picked instead of the current one. sync-setup just wrote the current
+# config, so it is the newest; every other one in this directory is stale.
+current_config="$(ls -t "${HEADLESS_SYNC_DIR}"/*/config.json 2>/dev/null | head -n 1)" || true
+for config_file in "${HEADLESS_SYNC_DIR}"/*/config.json; do
+  [ -f "${config_file}" ] || continue
+  [ "${config_file}" = "${current_config}" ] && continue
+  stale_dir="$(dirname "${config_file}")"
+  log "Removing stale obsidian-headless config: ${stale_dir}"
+  rm -rf "${stale_dir}"
+done
+
 # ---------------------------------------------------------------------------
 # 9. Configure sync mode, file types and config categories
 #
