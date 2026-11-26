@@ -10,7 +10,8 @@
 # 6. Sets up Git LFS (if enabled)
 # 7. Writes vault .gitignore
 # 8. Sets up obsidian-headless sync
-# 9. Configures sync file types and settings (workaround for upstream bug)
+# 9. Configures sync mode, file types and config categories
+#    (also works around an upstream bug, see step 9)
 #
 # This script runs as root but delegates user-facing operations
 # (git, ssh, ob) to the 'obsidian' user via su-exec. The init-usermap
@@ -563,7 +564,7 @@ fi
 log "Obsidian headless sync configured for vault: ${OBSIDIAN_GIT_VAULT_NAME}"
 
 # ---------------------------------------------------------------------------
-# 9. Configure sync file types and settings
+# 9. Configure sync mode, file types and config categories
 #
 # IMPORTANT: ob sync-setup does NOT set allowTypes or allowSpecialFiles in
 # the stored config. When ob sync loads the config, it passes the missing
@@ -612,7 +613,7 @@ case "${SYNC_MODE}" in
      exit 1 ;;
 esac
 
-log "Configuring sync filter settings..."
+log "Configuring sync settings..."
 log "  Mode:       ${SYNC_MODE}"
 log "  File types: ${SYNC_FILE_TYPES}"
 log "  Configs:    ${SYNC_CONFIGS}"
